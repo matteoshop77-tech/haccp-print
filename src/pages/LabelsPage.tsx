@@ -68,6 +68,36 @@ function BontasCard({ onPrint }: { onPrint: (copies: number) => void }) {
   );
 }
 
+function CategorySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const categories = useStore((s) => s.categories);
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{
+        width: "100%",
+        background: "#161820",
+        border: "0.5px solid #ffffff12",
+        borderRadius: "10px",
+        padding: "8px 12px",
+        fontSize: "13px",
+        color: value ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.28)",
+        outline: "none",
+        appearance: "auto",
+      }}
+    >
+      <option value="" style={{ color: "rgba(255,255,255,0.28)", background: "#161820" }}>
+        Select category...
+      </option>
+      {categories.map((c) => (
+        <option key={c} value={c} style={{ background: "#161820", color: "rgba(255,255,255,0.92)" }}>
+          {c}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function LabelForm({
   initial, onSave, onCancel, lang,
 }: {
@@ -122,7 +152,6 @@ function LabelForm({
 
         <div className="p-5 flex flex-col gap-4">
 
-          {/* Tipo — sempre visibile */}
           <div>
             <label className="section-label mb-2 block">Label type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -143,7 +172,6 @@ function LabelForm({
             </div>
           </div>
 
-          {/* CUSTOM — solo testo libero */}
           {type === "custom" && (
             <div>
               <label className="section-label mb-1.5 block">
@@ -160,7 +188,6 @@ function LabelForm({
             </div>
           )}
 
-          {/* ÉRVÉNYES — nome, categoria, giorni */}
           {type === "ervenyesseg" && (
             <>
               <div>
@@ -173,30 +200,22 @@ function LabelForm({
                 <label className="section-label mb-1.5 block">
                   Category <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="es. Dessert" />
+                <CategorySelect value={category} onChange={setCategory} />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
                   Eltartható (nap) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border
-                               flex items-center justify-center text-brand-light
-                               hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0"
-                  >
+                  <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
+                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
                     {shelfLife} {shelfLife === 1 ? "day" : "days"}
                   </span>
-                  <button
-                    onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border
-                               flex items-center justify-center text-brand-light
-                               hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0"
-                  >
+                  <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
+                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -204,7 +223,6 @@ function LabelForm({
             </>
           )}
 
-          {/* TERMÉK LEÍRÁS — tutto */}
           {type === "termek_leiras" && (
             <>
               <div>
@@ -217,30 +235,22 @@ function LabelForm({
                 <label className="section-label mb-1.5 block">
                   Category <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <input className="input" value={category} onChange={(e) => setCategory(e.target.value)} placeholder="es. Dessert" />
+                <CategorySelect value={category} onChange={setCategory} />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
                   Eltartható (nap) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border
-                               flex items-center justify-center text-brand-light
-                               hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0"
-                  >
+                  <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
+                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
                     {shelfLife} {shelfLife === 1 ? "day" : "days"}
                   </span>
-                  <button
-                    onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border
-                               flex items-center justify-center text-brand-light
-                               hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0"
-                  >
+                  <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
+                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -273,6 +283,7 @@ function LabelForm({
     </div>
   );
 }
+
 function LabelCard({
   template, lang, onPrint, onPin, onDelete, onEdit,
 }: {
