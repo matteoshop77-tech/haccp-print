@@ -7,6 +7,11 @@ import type {
   License,
 } from "@/lib/types";
 
+const defaultCategories = [
+  "Dessert", "Pasta", "Carne", "Pesce", "Salse",
+  "Zuppa", "Antipasto", "Pane", "Bevande", "Altro",
+];
+
 const defaultSettings: AppSettings = {
   profile:             "restaurant",
   language:            "en",
@@ -91,10 +96,11 @@ const demoTemplates: LabelTemplate[] = [
 ];
 
 interface AppStore {
-  settings:  AppSettings;
-  templates: LabelTemplate[];
-  printJobs: PrintJob[];
-  license:   License | null;
+  settings:   AppSettings;
+  templates:  LabelTemplate[];
+  printJobs:  PrintJob[];
+  license:    License | null;
+  categories: string[];
 
   updateSettings:  (partial: Partial<AppSettings>) => void;
   addTemplate:     (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
@@ -103,15 +109,18 @@ interface AppStore {
   pinTemplate:     (id: string, pinned: boolean) => void;
   addPrintJob:     (job: Omit<PrintJob, "id" | "printedAt">) => void;
   setLicense:      (l: License) => void;
+  addCategory:     (name: string) => void;
+  removeCategory:  (name: string) => void;
 }
 
 export const useStore = create<AppStore>()(
   persist(
     (set) => ({
-      settings:  defaultSettings,
-      templates: demoTemplates,
-      printJobs: [],
-      license:   null,
+      settings:   defaultSettings,
+      templates:  demoTemplates,
+      printJobs:  [],
+      license:    null,
+      categories: defaultCategories,
 
       updateSettings: (partial) =>
         set((s) => ({ settings: { ...s.settings, ...partial } })),
@@ -158,6 +167,18 @@ export const useStore = create<AppStore>()(
       },
 
       setLicense: (l) => set({ license: l }),
+
+      addCategory: (name) =>
+        set((s) => ({
+          categories: s.categories.includes(name)
+            ? s.categories
+            : [...s.categories, name.trim()],
+        })),
+
+      removeCategory: (name) =>
+        set((s) => ({
+          categories: s.categories.filter((c) => c !== name),
+        })),
     }),
     { name: "haccp-print-store" }
   )
