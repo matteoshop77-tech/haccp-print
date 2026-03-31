@@ -1,43 +1,24 @@
 import { addDays, format } from "date-fns";
 import type { LabelTemplate } from "@/lib/types";
 
-/* ── Costanti fisiche Brother QL-800 62mm ── */
-const PRINT_WIDTH_PX   = 696;   // 58mm a 300dpi
-const MARGIN_PX        = 24;    // margine interno
-const CONTENT_WIDTH    = PRINT_WIDTH_PX - MARGIN_PX * 2;
-const DPI              = 300;
-const MM_TO_PX         = DPI / 25.4;
+const PRINT_WIDTH_PX = 696;
+const MARGIN_PX      = 20;
+const CONTENT_WIDTH  = PRINT_WIDTH_PX - MARGIN_PX * 2;
 
-/* ── Font sizes in px (300dpi) ── */
-const FONT_PRODUCT_NAME = 52;   // nome prodotto grande
-const FONT_LABEL        = 28;   // etichette piccole (PREPARED, USE BY...)
-const FONT_VALUE        = 38;   // valori (date, giorni)
-const FONT_DESCRIPTION  = 30;   // descrizione / ingredienti
-const FONT_ALLERGENS    = 26;   // allergeni
-const FONT_FOOTER       = 24;   // footer HACCPrint
+const F_NAME    = 38;
+const F_DESC    = 26;
+const F_LABEL   = 22;
+const F_VALUE   = 28;
+const F_ALLERG  = 24;
 
-const LINE_GAP          = 12;   // spazio tra righe
-const SECTION_GAP       = 28;   // spazio tra sezioni
-const DIVIDER_HEIGHT    = 2;    // linea separatrice
+const GAP_SM    = 8;
+const GAP_MD    = 10;
+const GAP_TOP   = 6;
 
-/* ── Colori ── */
-const COLOR_BLACK       = "#000000";
-const COLOR_DARK_GRAY   = "#333333";
-const COLOR_MID_GRAY    = "#666666";
-const COLOR_LIGHT_GRAY  = "#999999";
-const COLOR_DIVIDER     = "#cccccc";
+function fontB(s: number) { return `bold ${s}px Arial, sans-serif`; }
+function fontM(s: number) { return `500 ${s}px Arial, sans-serif`; }
+function fontR(s: number) { return `400 ${s}px Arial, sans-serif`; }
 
-/* ── Font stack ── */
-const FONT_BOLD    = `bold %PX%px "DM Sans", Arial, sans-serif`;
-const FONT_MEDIUM  = `500 %PX%px "DM Sans", Arial, sans-serif`;
-const FONT_REGULAR = `400 %PX%px "DM Sans", Arial, sans-serif`;
-
-function px(size: number) { return size; }
-function fontBold(size: number)    { return FONT_BOLD.replace("%PX%", String(size)); }
-function fontMedium(size: number)  { return FONT_MEDIUM.replace("%PX%", String(size)); }
-function fontRegular(size: number) { return FONT_REGULAR.replace("%PX%", String(size)); }
-
-/* ── Wrap testo su più righe ── */
 function wrapText(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -45,267 +26,197 @@ function wrapText(
 ): string[] {
   const words = text.split(" ");
   const lines: string[] = [];
-  let current = "";
-  for (const word of words) {
-    const test = current ? `${current} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
+  let cur = "";
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxWidth && cur) {
+      lines.push(cur);
+      cur = w;
     } else {
-      current = test;
+      cur = test;
     }
   }
-  if (current) lines.push(current);
+  if (cur) lines.push(cur);
   return lines;
 }
 
-/* ── Disegna testo wrappato, ritorna altezza usata ── */
-function drawWrappedText(
+function drawText(
   ctx: CanvasRenderingContext2D,
   text: string,
   x: number,
   y: number,
   maxWidth: number,
-  lineHeight: number,
-  color = COLOR_BLACK
+  lineH: number,
+  color = "#000"
 ): number {
   const lines = wrapText(ctx, text, maxWidth);
   ctx.fillStyle = color;
-  for (const line of lines) {
-    ctx.fillText(line, x, y);
-    y += lineHeight;
+  for (const l of lines) {
+    ctx.fillText(l, x, y);
+    y += lineH;
   }
-  return lines.length * lineHeight;
+  return lines.length * lineH;
 }
 
-/* ── Calcola altezza totale senza disegnare (dry run) ── */
-function calculateHeight(
+function divider(ctx: CanvasRenderingContext2D, y: number) {
+  ctx.fillStyle = "#cccccc";
+  ctx.fillRect(MARGIN_PX, y, CONTENT_WIDTH, 1);
+}
+
+function calcHeight(
   template: LabelTemplate,
-  preparedDate: Date,
   lang: "en" | "hu"
 ): number {
-  const canvas = document.createElement("canvas");
-  canvas.width = PRINT_WIDTH_PX;
-  canvas.height = 100; // temporaneo
-  const ctx = canvas.getContext("2d")!;
+  const c = document.createElement("canvas");
+  c.width = PRINT_WIDTH_PX;
+  c.height = 100;
+  const ctx = c.getContext("2d")!;
+  let h = GAP_TOP;
 
-  let h = MARGIN_PX;
-
-  // Nome prodotto
-  ctx.font = fontBold(FONT_PRODUCT_NAME);
+  // Nome
+  ctx.font = fontB(F_NAME);
   const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_WIDTH);
-  h += nameLines.length * (FONT_PRODUCT_NAME + LINE_GAP);
-  h += SECTION_GAP;
+  h += nameLines.length * (F_NAME + GAP_SM);
+  h += GAP_SM;
 
-  // Divider
-  h += DIVIDER_HEIGHT + SECTION_GAP;
+  // Descrizione
+  if (template.description && template.type !== "bontas") {
+    ctx.font = fontR(F_DESC);
+    const dLines = wrapText(ctx, template.description, CONTENT_WIDTH);
+    h += dLines.length * (F_DESC + GAP_SM);
+    h += GAP_SM;
+  }
 
-  // Tipo etichetta
-  if (template.type === "bontas") {
-    h += FONT_LABEL + LINE_GAP;
-    h += FONT_VALUE + LINE_GAP;
-    h += SECTION_GAP;
-  } else if (template.type === "ervenyesseg") {
-    h += (FONT_LABEL + LINE_GAP) * 2;
-    h += (FONT_VALUE + LINE_GAP) * 2;
-    h += SECTION_GAP;
-  } else if (template.type === "termek_leiras") {
-    if (template.description) {
-      ctx.font = fontRegular(FONT_DESCRIPTION);
-      const descLines = wrapText(ctx, template.description, CONTENT_WIDTH);
-      h += descLines.length * (FONT_DESCRIPTION + LINE_GAP);
-      h += SECTION_GAP;
+  // Divider + date
+  if (template.type !== "custom") {
+    h += 1 + GAP_MD;
+    if (template.type === "bontas") {
+      h += F_LABEL + GAP_SM + F_VALUE + GAP_SM;
+    } else {
+      h += (F_LABEL + GAP_SM + F_VALUE + GAP_SM) * 2;
     }
-    h += FONT_LABEL + LINE_GAP;
-    h += FONT_VALUE + LINE_GAP;
-    h += SECTION_GAP;
-  } else if (template.type === "custom") {
-    if (template.description) {
-      ctx.font = fontRegular(FONT_DESCRIPTION);
-      const descLines = wrapText(ctx, template.description, CONTENT_WIDTH);
-      h += descLines.length * (FONT_DESCRIPTION + LINE_GAP);
-      h += SECTION_GAP;
-    }
+    h += GAP_SM;
   }
 
   // Allergeni
   if (template.allergens) {
-    h += DIVIDER_HEIGHT + SECTION_GAP;
-    ctx.font = fontRegular(FONT_ALLERGENS);
-    const algLines = wrapText(ctx, `${lang === "hu" ? "Allergének" : "Allergens"}: ${template.allergens}`, CONTENT_WIDTH);
-    h += algLines.length * (FONT_ALLERGENS + LINE_GAP);
-    h += SECTION_GAP;
+    h += 1 + GAP_MD;
+    ctx.font = fontR(F_ALLERG);
+    const aLines = wrapText(ctx, `${lang === "hu" ? "Allergének" : "Allergens"}: ${template.allergens}`, CONTENT_WIDTH);
+    h += aLines.length * (F_ALLERG + GAP_SM);
+    h += GAP_SM;
   }
 
-  // Footer
-  h += DIVIDER_HEIGHT + SECTION_GAP;
-  h += FONT_FOOTER + LINE_GAP;
-  h += MARGIN_PX;
-
+  h += 6;
   return h;
 }
 
-/* ── Renderer principale ── */
 export function renderLabelToCanvas(
   template: LabelTemplate,
   preparedDate: Date,
   lang: "en" | "hu" = "en"
 ): HTMLCanvasElement {
-  const expiry = addDays(preparedDate, template.shelfLifeDays);
+  const expiry      = addDays(preparedDate, template.shelfLifeDays);
   const preparedStr = format(preparedDate, "dd.MM.yyyy");
-  const expiryStr   = format(expiry,       "dd.MM.yyyy");
+  const expiryStr   = format(expiry, "dd.MM.yyyy");
 
-  const labels = {
-    prepared:   lang === "hu" ? "Elkészítve:"      : "Prepared:",
-    useby:      lang === "hu" ? "Felhasználható:"  : "Use by:",
-    opened:     lang === "hu" ? "Bontás dátuma:"   : "Opened on:",
-    expires:    lang === "hu" ? "Lejárat:"         : "Expires:",
-    allergens:  lang === "hu" ? "Allergének:"      : "Allergens:",
-    footer:     "HACCPrint",
+  const L = {
+    prepared: lang === "hu" ? "Elkészítve:" : "Prepared:",
+    useby:    lang === "hu" ? "Felhasználható:" : "Use by:",
+    opened:   lang === "hu" ? "Bontás dátuma:" : "Opened:",
+    expires:  lang === "hu" ? "Lejárat:" : "Expires:",
+    allergens:lang === "hu" ? "Allergének:" : "Allergens:",
   };
 
-  const height = calculateHeight(template, preparedDate, lang);
-
+  const height = calcHeight(template, lang);
   const canvas = document.createElement("canvas");
   canvas.width  = PRINT_WIDTH_PX;
   canvas.height = height;
 
   const ctx = canvas.getContext("2d")!;
-
-  // Sfondo bianco
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, PRINT_WIDTH_PX, height);
 
-  let y = MARGIN_PX;
   const x = MARGIN_PX;
+  let y = GAP_TOP;
 
-  // ── Nome prodotto ──
-  ctx.font = fontBold(FONT_PRODUCT_NAME);
+  // ── Nome ──
+  ctx.font = fontB(F_NAME);
   const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_WIDTH);
-  ctx.fillStyle = COLOR_BLACK;
-  for (const line of nameLines) {
-    ctx.fillText(line, x, y + FONT_PRODUCT_NAME);
-    y += FONT_PRODUCT_NAME + LINE_GAP;
+  ctx.fillStyle = "#000";
+  for (const l of nameLines) {
+    ctx.fillText(l, x, y + F_NAME);
+    y += F_NAME + GAP_SM;
   }
-  y += SECTION_GAP;
+  y += GAP_SM;
 
-  // ── Divider ──
-  ctx.fillStyle = COLOR_DIVIDER;
-  ctx.fillRect(x, y, CONTENT_WIDTH, DIVIDER_HEIGHT);
-  y += DIVIDER_HEIGHT + SECTION_GAP;
+  // ── Descrizione ──
+  if (template.description && template.type !== "bontas") {
+    ctx.font = fontR(F_DESC);
+    const used = drawText(ctx, template.description, x, y + F_DESC, CONTENT_WIDTH, F_DESC + GAP_SM, "#333");
+    y += used + GAP_SM;
+  }
 
-  // ── Contenuto per tipo ──
-  if (template.type === "bontas") {
-    ctx.font = fontRegular(FONT_LABEL);
-    ctx.fillStyle = COLOR_LIGHT_GRAY;
-    ctx.fillText(labels.opened, x, y + FONT_LABEL);
-    y += FONT_LABEL + LINE_GAP;
-    ctx.font = fontBold(FONT_VALUE);
-    ctx.fillStyle = COLOR_BLACK;
-    ctx.fillText(preparedStr, x, y + FONT_VALUE);
-    y += FONT_VALUE + LINE_GAP + SECTION_GAP;
+  // ── Date ──
+  if (template.type !== "custom") {
+    divider(ctx, y);
+    y += 1 + GAP_MD;
 
-  } else if (template.type === "ervenyesseg") {
-    // Prepared
-    ctx.font = fontRegular(FONT_LABEL);
-    ctx.fillStyle = COLOR_LIGHT_GRAY;
-    ctx.fillText(labels.prepared, x, y + FONT_LABEL);
-    y += FONT_LABEL + LINE_GAP;
-    ctx.font = fontMedium(FONT_VALUE);
-    ctx.fillStyle = COLOR_DARK_GRAY;
-    ctx.fillText(preparedStr, x, y + FONT_VALUE);
-    y += FONT_VALUE + LINE_GAP + SECTION_GAP * 0.5;
+    if (template.type === "bontas") {
+      ctx.font = fontR(F_LABEL);
+      ctx.fillStyle = "#888";
+      ctx.fillText(L.opened, x, y + F_LABEL);
+      y += F_LABEL + GAP_SM;
+      ctx.font = fontB(F_VALUE);
+      ctx.fillStyle = "#000";
+      ctx.fillText(preparedStr, x, y + F_VALUE);
+      y += F_VALUE + GAP_SM;
 
-    // Use by
-    ctx.font = fontRegular(FONT_LABEL);
-    ctx.fillStyle = COLOR_LIGHT_GRAY;
-    ctx.fillText(labels.useby, x, y + FONT_LABEL);
-    y += FONT_LABEL + LINE_GAP;
-    ctx.font = fontBold(FONT_VALUE);
-    ctx.fillStyle = COLOR_BLACK;
-    ctx.fillText(expiryStr, x, y + FONT_VALUE);
-    y += FONT_VALUE + LINE_GAP + SECTION_GAP;
+    } else {
+      // Prepared
+      ctx.font = fontR(F_LABEL);
+      ctx.fillStyle = "#888";
+      ctx.fillText(L.prepared, x, y + F_LABEL);
+      y += F_LABEL + GAP_SM;
+      ctx.font = fontM(F_VALUE);
+      ctx.fillStyle = "#444";
+      ctx.fillText(preparedStr, x, y + F_VALUE);
+      y += F_VALUE + GAP_SM;
 
-  } else if (template.type === "termek_leiras") {
-    // Descrizione
-    if (template.description) {
-      ctx.font = fontRegular(FONT_DESCRIPTION);
-      const used = drawWrappedText(
-        ctx, template.description,
-        x, y + FONT_DESCRIPTION,
-        CONTENT_WIDTH, FONT_DESCRIPTION + LINE_GAP,
-        COLOR_DARK_GRAY
-      );
-      y += used + SECTION_GAP;
+      // Use by
+      ctx.font = fontR(F_LABEL);
+      ctx.fillStyle = "#888";
+      ctx.fillText(L.useby, x, y + F_LABEL);
+      y += F_LABEL + GAP_SM;
+      ctx.font = fontB(F_VALUE);
+      ctx.fillStyle = "#000";
+      ctx.fillText(expiryStr, x, y + F_VALUE);
+      y += F_VALUE + GAP_SM;
     }
-    // Expires
-    ctx.font = fontRegular(FONT_LABEL);
-    ctx.fillStyle = COLOR_LIGHT_GRAY;
-    ctx.fillText(labels.expires, x, y + FONT_LABEL);
-    y += FONT_LABEL + LINE_GAP;
-    ctx.font = fontBold(FONT_VALUE);
-    ctx.fillStyle = COLOR_BLACK;
-    ctx.fillText(expiryStr, x, y + FONT_VALUE);
-    y += FONT_VALUE + LINE_GAP + SECTION_GAP;
-
-  } else if (template.type === "custom") {
-    if (template.description) {
-      ctx.font = fontRegular(FONT_DESCRIPTION);
-      const used = drawWrappedText(
-        ctx, template.description,
-        x, y + FONT_DESCRIPTION,
-        CONTENT_WIDTH, FONT_DESCRIPTION + LINE_GAP,
-        COLOR_BLACK
-      );
-      y += used + SECTION_GAP;
-    }
+    y += GAP_SM;
   }
 
   // ── Allergeni ──
   if (template.allergens) {
-    ctx.fillStyle = COLOR_DIVIDER;
-    ctx.fillRect(x, y, CONTENT_WIDTH, DIVIDER_HEIGHT);
-    y += DIVIDER_HEIGHT + SECTION_GAP;
-
-    ctx.font = fontRegular(FONT_ALLERGENS);
-    const algText = `${labels.allergens} ${template.allergens}`;
-    const used = drawWrappedText(
-      ctx, algText,
-      x, y + FONT_ALLERGENS,
-      CONTENT_WIDTH, FONT_ALLERGENS + LINE_GAP,
-      COLOR_MID_GRAY
-    );
-    y += used + SECTION_GAP;
+    divider(ctx, y);
+    y += 1 + GAP_MD;
+    ctx.font = fontR(F_ALLERG);
+    const algText = `${L.allergens} ${template.allergens}`;
+    const used = drawText(ctx, algText, x, y + F_ALLERG, CONTENT_WIDTH, F_ALLERG + GAP_SM, "#555");
+    y += used + GAP_SM;
   }
-
-  // ── Footer ──
-  ctx.fillStyle = COLOR_DIVIDER;
-  ctx.fillRect(x, y, CONTENT_WIDTH, DIVIDER_HEIGHT);
-  y += DIVIDER_HEIGHT + SECTION_GAP;
-
-  ctx.font = fontRegular(FONT_FOOTER);
-  ctx.fillStyle = COLOR_LIGHT_GRAY;
-  ctx.fillText(`${labels.footer} · ${preparedStr}`, x, y + FONT_FOOTER);
 
   return canvas;
 }
 
-/* ── Esporta come PNG base64 ── */
 export function renderLabelToPNG(
   template: LabelTemplate,
   preparedDate: Date,
   lang: "en" | "hu" = "en"
 ): string {
-  const canvas = renderLabelToCanvas(template, preparedDate, lang);
-  return canvas.toDataURL("image/png");
+  return renderLabelToCanvas(template, preparedDate, lang).toDataURL("image/png");
 }
 
-/* ── Calcola altezza etichetta in mm ── */
-export function getLabelHeightMM(
-  template: LabelTemplate,
-  preparedDate: Date,
-  lang: "en" | "hu" = "en"
-): number {
-  const heightPx = calculateHeight(template, preparedDate, lang);
-  return Math.ceil(heightPx / MM_TO_PX);
+export function formatLabelDate(date: Date): string {
+  return format(date, "dd.MM.yyyy");
 }
