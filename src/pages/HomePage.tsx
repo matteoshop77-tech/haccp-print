@@ -81,7 +81,7 @@ function RecentRow({
   job,
   onReprint,
 }: {
-  job: ReturnType<ReturnType<typeof useStore>["recentPrintJobs"]>[number];
+  job: import("@/lib/types").PrintJob;
   onReprint: () => void;
 }) {
   return (
@@ -111,11 +111,13 @@ export default function HomePage() {
   const navigate   = useNavigate();
   const lang       = useStore((s) => s.settings.language);
   const settings   = useStore((s) => s.settings);
-  const pinnedTmpl = useStore((s) => s.pinnedTemplates());
-  const recentJobs = useStore((s) => s.recentPrintJobs(4));
-  const todayCount = useStore((s) => s.todayPrintCount());
-  const expiring   = useStore((s) => s.expiringTomorrow());
   const templates  = useStore((s) => s.templates);
+  const printJobs  = useStore((s) => s.printJobs);
+  const pinnedTmpl = templates.filter((tmpl) => tmpl.pinned).slice(0, 3);
+  const recentJobs = printJobs.slice(0, 4);
+  const today      = new Date().toISOString().slice(0, 10);
+  const todayCount = printJobs.filter((j) => j.printedAt.startsWith(today)).reduce((sum, j) => sum + j.copies, 0);
+  const expiring   = 0;
 
   const [selectedTemplate, setSelectedTemplate] = useState<LabelTemplate | null>(null);
   const lastPrint = recentJobs[0]

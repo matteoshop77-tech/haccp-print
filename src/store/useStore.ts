@@ -6,20 +6,17 @@ import type {
   PrintJob,
   License,
 } from "@/lib/types";
-import { format } from "date-fns";
 
-/* ── Default settings ── */
 const defaultSettings: AppSettings = {
-  profile:              "restaurant",
-  language:             "en",
-  theme:                "dark",
-  operatorName:         "",
-  printerName:          null,
-  autoCalculateExpiry:  true,
-  haccpLogEnabled:      true,
+  profile:             "restaurant",
+  language:            "en",
+  theme:               "dark",
+  operatorName:        "",
+  printerName:         null,
+  autoCalculateExpiry: true,
+  haccpLogEnabled:     true,
 };
 
-/* ── Demo templates ── */
 const demoTemplates: LabelTemplate[] = [
   {
     id: "demo-1",
@@ -93,38 +90,24 @@ const demoTemplates: LabelTemplate[] = [
   },
 ];
 
-/* ── Store interface ── */
 interface AppStore {
-  settings:   AppSettings;
-  templates:  LabelTemplate[];
-  printJobs:  PrintJob[];
-  license:    License | null;
+  settings:  AppSettings;
+  templates: LabelTemplate[];
+  printJobs: PrintJob[];
+  license:   License | null;
 
-  /* Settings actions */
-  updateSettings: (partial: Partial<AppSettings>) => void;
-
-  /* Template actions */
-  addTemplate:    (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
-  updateTemplate: (id: string, partial: Partial<LabelTemplate>) => void;
-  deleteTemplate: (id: string) => void;
-  pinTemplate:    (id: string, pinned: boolean) => void;
-
-  /* Print actions */
-  addPrintJob: (job: Omit<PrintJob, "id" | "printedAt">) => void;
-
-  /* License */
-  setLicense: (l: License) => void;
-
-  /* Helpers */
-  pinnedTemplates:  () => LabelTemplate[];
-  recentPrintJobs:  (n?: number) => PrintJob[];
-  todayPrintCount:  () => number;
-  expiringTomorrow: () => number;
+  updateSettings:  (partial: Partial<AppSettings>) => void;
+  addTemplate:     (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
+  updateTemplate:  (id: string, partial: Partial<LabelTemplate>) => void;
+  deleteTemplate:  (id: string) => void;
+  pinTemplate:     (id: string, pinned: boolean) => void;
+  addPrintJob:     (job: Omit<PrintJob, "id" | "printedAt">) => void;
+  setLicense:      (l: License) => void;
 }
 
 export const useStore = create<AppStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       settings:  defaultSettings,
       templates: demoTemplates,
       printJobs: [],
@@ -175,26 +158,6 @@ export const useStore = create<AppStore>()(
       },
 
       setLicense: (l) => set({ license: l }),
-
-      pinnedTemplates: () =>
-        get().templates.filter((t) => t.pinned).slice(0, 8),
-
-      recentPrintJobs: (n = 5) => get().printJobs.slice(0, n),
-
-      todayPrintCount: () => {
-        const today = format(new Date(), "yyyy-MM-dd");
-        return get().printJobs
-          .filter((j) => j.printedAt.startsWith(today))
-          .reduce((sum, j) => sum + j.copies, 0);
-      },
-
-      expiringTomorrow: () => {
-        const tomorrow = format(
-          new Date(Date.now() + 86_400_000),
-          "yyyy-MM-dd"
-        );
-        return get().printJobs.filter((j) => j.expiryDate === tomorrow).length;
-      },
     }),
     { name: "haccp-print-store" }
   )
