@@ -1,42 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { format, addDays } from "date-fns";
 import { Printer, X, Minus, Plus } from "lucide-react";
 import { useStore } from "@/store/useStore";
-import { printLabel, formatLabelDate } from "@/lib/printService";
+import { printLabel } from "@/lib/printService";
+import { renderLabelToCanvas } from "@/lib/labelRenderer";
+import { formatLabelDate } from "@/lib/printService";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate } from "@/lib/types";
 import clsx from "clsx";
-
-function LabelPreview({ template, preparedDate }: {
-  template: LabelTemplate;
-  preparedDate: Date;
-}) {
-  const expiryDate = addDays(preparedDate, template.shelfLifeDays);
-  return (
-    <div className="bg-white rounded-lg px-4 py-3 relative overflow-hidden">
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-5 bg-app-bg rounded-l-full" />
-      <p className="text-[9px] text-black/30 uppercase tracking-widest font-mono mb-1.5">HACCPrint</p>
-      <p className="text-[17px] font-bold text-black leading-tight tracking-tight">{template.name}</p>
-      {template.description && (
-        <p className="text-[10px] text-black/50 mt-1 leading-snug">{template.description}</p>
-      )}
-      <div className="h-px bg-black/10 my-2.5" />
-      <div className="flex items-end justify-between">
-        <div>
-          <p className="text-[9px] text-black/40 uppercase tracking-wide">Prepared</p>
-          <p className="text-[12px] font-semibold text-black">{formatLabelDate(preparedDate)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[9px] text-black/40 uppercase tracking-wide">Use by</p>
-          <p className="text-[12px] font-semibold text-[#0F6E56]">{formatLabelDate(expiryDate)}</p>
-        </div>
-      </div>
-      {template.allergens && (
-        <p className="text-[9px] text-black/35 mt-2 leading-snug">Allergens: {template.allergens}</p>
-      )}
-    </div>
-  );
-}
 
 const typeBadge: Record<string, string> = {
   ervenyesseg:   "badge-brand",
@@ -44,6 +15,37 @@ const typeBadge: Record<string, string> = {
   termek_leiras: "bg-sky/10 text-sky border border-sky/20",
   custom:        "bg-violet/10 text-violet border border-violet/20",
 };
+
+/* ── Anteprima Canvas reale ── */
+function LabelPreview({ template, preparedDate, lang }: {
+  template: LabelTemplate;
+  preparedDate: Date;
+  lang: "en" | "hu";
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const canvas = renderLabelToCanvas(template, preparedDate, lang);
+    // Scala il canvas per farlo stare nel modal (larghezza max 340px)
+    const maxW = containerRef.current.clientWidth || 340;
+    const scale = maxW / canvas.width;
+    canvas.style.width  = `${canvas.width * scale}px`;
+    canvas.style.height = `${canvas.height * scale}px`;
+    canvas.style.borderRadius = "8px";
+    canvas.style.display = "block";
+    containerRef.current.innerHTML = "";
+    containerRef.current.appendChild(canvas);
+  }, [template, preparedDate, lang]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full rounded-lg overflow-hidden"
+      style={{ background: "#fff", minHeight: "80px" }}
+    />
+  );
+}
 
 interface PrintModalProps {
   template: LabelTemplate;
@@ -107,21 +109,26 @@ export function PrintModal({ template, onClose }: PrintModalProps) {
           </div>
         </div>
 
-        {/* Anteprima */}
+        {/* Anteprima etichetta reale */}
         <div className="p-5 pb-3">
-          <LabelPreview template={template} preparedDate={today} />
+          <p className="section-label mb-2">Label preview</p>
+          <LabelPreview template={template} preparedDate={today} lang={lang} />
         </div>
 
         {/* Controlli */}
         <div className="px-5 pb-4 flex flex-col gap-3">
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-ink-secondary w-24 flex-shrink-0">Expires in</span>
-            <span className="text-sm text-brand-light font-medium">
-              {template.shelfLifeDays} {t("days", lang)} → {formatLabelDate(expiry)}
-            </span>
-          </div>
+          {template.type !== "custom" && template.type !== "bontas" && (
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-ink-secondary w-24 flex-shrink-0">
+                {t("print_expires_in", lang)}
+              </span>
+              <span className="text-sm text-brand-light font-medium">
+                {template.shelfLifeDays} {t("days", lang)} → {formatLabelDate(expiry)}
+              </span>
+            </div>
+          )}
 
-          {/* Copie con + e - */}
+          {/* Copie */}
           <div className="flex items-center gap-3">
             <span className="text-xs text-ink-secondary w-24 flex-shrink-0">
               {t("print_copies", lang)}

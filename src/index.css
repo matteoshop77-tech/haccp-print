@@ -76,8 +76,6 @@
     color: rgba(255,255,255,0.92);
   }
   .input::placeholder { color: rgba(255,255,255,0.28); }
-  select.input { color: rgba(255,255,255,0.92); background-color: #161820; }
-  select.input option { background-color: #161820; color: rgba(255,255,255,0.92); }
 
   .nav-item {
     @apply flex items-center justify-center w-10 h-10 rounded-md
