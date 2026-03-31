@@ -1,0 +1,193 @@
+import type { Language } from "./types";
+
+const translations = {
+  en: {
+    /* Nav */
+    nav_home:     "Home",
+    nav_labels:   "Labels",
+    nav_log:      "Print log",
+    nav_settings: "Settings",
+
+    /* Home */
+    home_greeting:      "Quick print",
+    home_profile:       "profile",
+    home_printed_today: "Printed today",
+    home_expiring:      "Expiring tomorrow",
+    home_saved:         "Saved labels",
+    home_last_print:    "Last print",
+    home_quick_access:  "Saved labels — quick access",
+    home_recent:        "Recent prints",
+    home_reprint:       "Reprint",
+    home_new_job:       "New print job",
+    home_add_new:       "Add new",
+    home_create_label:  "Create label",
+
+    /* Label types */
+    type_bontas:        "Bontás",
+    type_ervenyesseg:   "Érvényes",
+    type_termek_leiras: "Termék leírás",
+    type_custom:        "Custom",
+
+    /* Print screen */
+    print_prepared:   "Prepared",
+    print_use_by:     "Use by",
+    print_copies:     "Copies",
+    print_expires_in: "Expires in",
+    print_date:       "Print date",
+    print_edit:       "Edit label",
+    print_btn:        "Print",
+    print_labels:     "labels",
+    print_label:      "label",
+    print_max:        "max 200",
+
+    /* Settings */
+    settings_title:         "Settings",
+    settings_profile:       "Industry profile",
+    settings_profile_sub:   "Sets default templates and compliance fields",
+    settings_language:      "Language",
+    settings_appearance:    "Appearance",
+    settings_printer:       "Printer",
+    settings_device:        "Device setup",
+    settings_label_size:    "Label size",
+    settings_account:       "Account",
+    settings_license:       "License",
+    settings_subscription:  "Subscription",
+    settings_data:          "Data",
+    settings_haccp_export:  "HACCP export",
+    settings_backup:        "Backup",
+    settings_auto_expiry:   "Auto-calculate expiry",
+    settings_auto_expiry_sub:"Use shelf-life days saved per product",
+    settings_haccp_log:     "HACCP print log",
+    settings_haccp_log_sub: "Save every print for compliance export",
+    settings_dark_mode:     "Dark mode",
+    settings_operator:      "Operator name",
+
+    /* Profiles */
+    profile_restaurant: "Restaurant",
+    profile_hotel:      "Hotel / Catering",
+    profile_bakery:     "Bakery",
+    profile_pharmacy:   "Pharmacy",
+    profile_custom:     "Custom",
+
+    profile_restaurant_labels: "Bontás, Érvényes, Termék leírás",
+    profile_hotel_labels:      "Portioning, Allergen, Use-by",
+    profile_bakery_labels:     "Batch, Ingredients, Sell-by",
+    profile_pharmacy_labels:   "Lot number, Expiry, Storage",
+    profile_custom_labels:     "All label types",
+
+    /* License */
+    license_plan_basic:   "Basic plan",
+    license_plan_premium: "Premium plan",
+    license_plan_trial:   "Trial",
+    license_active:       "Active",
+    license_expired:      "Expired",
+    license_renews:       "Renews",
+    license_device:       "device activated",
+
+    /* Misc */
+    days:    "days",
+    today:   "today",
+    cancel:  "Cancel",
+    save:    "Save",
+    delete:  "Delete",
+    edit:    "Edit",
+    confirm: "Confirm",
+    search:  "Search…",
+    online:  "Online",
+    offline: "Offline",
+  },
+
+  hu: {
+    nav_home:     "Főoldal",
+    nav_labels:   "Címkék",
+    nav_log:      "Nyomtatási napló",
+    nav_settings: "Beállítások",
+
+    home_greeting:      "Gyors nyomtatás",
+    home_profile:       "profil",
+    home_printed_today: "Ma nyomtatva",
+    home_expiring:      "Holnap lejár",
+    home_saved:         "Mentett címkék",
+    home_last_print:    "Utolsó nyomtatás",
+    home_quick_access:  "Mentett címkék — gyors elérés",
+    home_recent:        "Legutóbbi nyomtatások",
+    home_reprint:       "Újranyomtatás",
+    home_new_job:       "Új nyomtatási feladat",
+    home_add_new:       "Új hozzáadása",
+    home_create_label:  "Címke létrehozása",
+
+    type_bontas:        "Bontás",
+    type_ervenyesseg:   "Érvényes",
+    type_termek_leiras: "Termék leírás",
+    type_custom:        "Egyéni",
+
+    print_prepared:   "Elkészítve",
+    print_use_by:     "Felhasználható",
+    print_copies:     "Példány",
+    print_expires_in: "Lejár",
+    print_date:       "Nyomtatás dátuma",
+    print_edit:       "Szerkesztés",
+    print_btn:        "Nyomtatás",
+    print_labels:     "darab",
+    print_label:      "darab",
+    print_max:        "max 200",
+
+    settings_title:         "Beállítások",
+    settings_profile:       "Iparági profil",
+    settings_profile_sub:   "Alapértelmezett sablon és megfelelési mezők",
+    settings_language:      "Nyelv",
+    settings_appearance:    "Megjelenés",
+    settings_printer:       "Nyomtató",
+    settings_device:        "Eszköz beállítása",
+    settings_label_size:    "Címke mérete",
+    settings_account:       "Fiók",
+    settings_license:       "Licenc",
+    settings_subscription:  "Előfizetés",
+    settings_data:          "Adatok",
+    settings_haccp_export:  "HACCP exportálás",
+    settings_backup:        "Biztonsági mentés",
+    settings_auto_expiry:   "Automatikus lejárat számítás",
+    settings_auto_expiry_sub:"Termékenkénti eltarthatósági napok használata",
+    settings_haccp_log:     "HACCP nyomtatási napló",
+    settings_haccp_log_sub: "Minden nyomtatás mentése megfelelési exporthoz",
+    settings_dark_mode:     "Sötét mód",
+    settings_operator:      "Kezelő neve",
+
+    profile_restaurant: "Étterem",
+    profile_hotel:      "Hotel / Catering",
+    profile_bakery:     "Pékség",
+    profile_pharmacy:   "Gyógyszertár",
+    profile_custom:     "Egyéni",
+
+    profile_restaurant_labels: "Bontás, Érvényes, Termék leírás",
+    profile_hotel_labels:      "Adagolás, Allergén, Felhasználható",
+    profile_bakery_labels:     "Köteg, Összetevők, Eladható",
+    profile_pharmacy_labels:   "Tételszám, Lejárat, Tárolás",
+    profile_custom_labels:     "Minden típus",
+
+    license_plan_basic:   "Alap csomag",
+    license_plan_premium: "Prémium csomag",
+    license_plan_trial:   "Próbaverzió",
+    license_active:       "Aktív",
+    license_expired:      "Lejárt",
+    license_renews:       "Megújul",
+    license_device:       "eszköz aktiválva",
+
+    days:    "nap",
+    today:   "ma",
+    cancel:  "Mégse",
+    save:    "Mentés",
+    delete:  "Törlés",
+    edit:    "Szerkesztés",
+    confirm: "Megerősítés",
+    search:  "Keresés…",
+    online:  "Online",
+    offline: "Offline",
+  },
+} as const;
+
+export type TranslationKey = keyof typeof translations.en;
+
+export function t(key: TranslationKey, lang: Language): string {
+  return translations[lang][key] ?? translations.en[key] ?? key;
+}

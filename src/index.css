@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body, #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    background: #0f1117;
+    color: rgba(255,255,255,0.92);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+}
+
+@layer components {
+  /* ── Pill / badge ── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border;
+  }
+  .badge-brand {
+    @apply badge bg-brand-muted text-brand-light border-brand-border;
+  }
+  .badge-amber {
+    @apply badge bg-amber-muted text-amber border border-amber/25;
+  }
+  .badge-coral {
+    @apply badge bg-coral-muted text-coral border border-coral/25;
+  }
+
+  /* ── Card ── */
+  .card {
+    @apply bg-app-surface border border-app-border rounded-lg;
+  }
+  .card-interactive {
+    @apply card cursor-pointer transition-colors duration-150
+           hover:border-app-border-hover;
+  }
+  .card-selected {
+    @apply card border-brand/40 bg-brand-muted/40;
+  }
+
+  /* ── Button ── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2
+           rounded-md text-sm font-medium transition-all duration-150
+           disabled:opacity-40 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-dark active:scale-[0.98];
+  }
+  .btn-ghost {
+    @apply btn bg-transparent border border-app-border text-ink-secondary
+           hover:border-app-border-hover hover:text-ink-primary active:scale-[0.98];
+  }
+  .btn-danger {
+    @apply btn bg-coral/10 border border-coral/25 text-coral
+           hover:bg-coral/20 active:scale-[0.98];
+  }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full bg-app-surface border border-app-border rounded-md
+           px-3 py-2 text-sm text-ink-primary placeholder-ink-muted
+           focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/20
+           transition-colors duration-150;
+  }
+
+  /* ── Sidebar nav item ── */
+  .nav-item {
+    @apply flex items-center justify-center w-10 h-10 rounded-md
+           text-ink-muted cursor-pointer transition-colors duration-150
+           hover:text-ink-secondary hover:bg-white/5;
+  }
+  .nav-item-active {
+    @apply nav-item text-brand-light bg-brand-muted;
+  }
+
+  /* ── Section label ── */
+  .section-label {
+    @apply text-2xs font-medium text-ink-faint uppercase tracking-widest;
+  }
+
+  /* ── Toggle ── */
+  .toggle-track {
+    @apply relative inline-flex w-9 h-5 rounded-full cursor-pointer
+           transition-colors duration-200;
+  }
+  .toggle-thumb {
+    @apply absolute top-0.5 w-4 h-4 rounded-full bg-white
+           transition-transform duration-200 shadow-sm;
+  }
+}
