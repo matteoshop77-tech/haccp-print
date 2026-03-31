@@ -163,7 +163,7 @@ export default function HomePage() {
           {pinnedTmpl.slice(0, 3).map((tmpl) => (
             <QuickCard key={tmpl.id} template={tmpl} onSelect={setSelectedTemplate} />
           ))}
-          <AddCard onClick={() => navigate("/labels/new")} />
+          <AddCard onClick={() => navigate("/labels")} />
         </div>
       </div>
 
