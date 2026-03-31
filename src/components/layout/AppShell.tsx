@@ -36,8 +36,8 @@ function TitleBar() {
         </svg>
         <span
           data-tauri-drag-region
-          className="text-xs font-semibold tracking-wide"
-          style={{ color: "rgba(255,255,255,0.5)", letterSpacing: "0.05em" }}
+          className="text-xs font-semibold"
+          style={{ color: "rgba(255,255,255,0.5)" }}
         >
           HACC<span style={{ color: "#1D9E75" }}>Print</span>
         </span>
