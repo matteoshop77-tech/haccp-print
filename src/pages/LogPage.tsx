@@ -31,7 +31,7 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
   );
 }
 
-function JobRow({ job, lang }: { job: PrintJob; lang: "en" | "hu" }) {
+function JobRow({ job }: { job: PrintJob }) {
   const colors = typeColors[job.labelType] ?? typeColors.custom;
   return (
     <tr className="border-b hover:bg-white/[0.02] transition-colors"
@@ -183,7 +183,7 @@ export default function LogPage() {
             </thead>
             <tbody>
               {filtered.map((job) => (
-                <JobRow key={job.id} job={job} lang={lang} />
+                <JobRow key={job.id} job={job} />
               ))}
             </tbody>
           </table>

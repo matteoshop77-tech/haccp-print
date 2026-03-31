@@ -99,12 +99,11 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
 }
 
 function LabelForm({
-  initial, onSave, onCancel, lang,
+  initial, onSave, onCancel,
 }: {
   initial?: LabelTemplate;
   onSave: (data: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
   onCancel: () => void;
-  lang: "en" | "hu";
 }) {
   const [type, setType]               = useState<LabelType>(initial?.type ?? "ervenyesseg");
   const [name, setName]               = useState(initial?.name ?? "");
@@ -454,8 +453,8 @@ export default function LabelsPage() {
       </div>
 
       {selected && <PrintModal template={selected} onClose={() => setSelected(null)} />}
-      {showForm && <LabelForm lang={lang} onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}
-      {editTarget && <LabelForm initial={editTarget} lang={lang} onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} />}
+      {showForm && <LabelForm onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}
+      {editTarget && <LabelForm initial={editTarget} onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} />}
     </div>
   );
 }
