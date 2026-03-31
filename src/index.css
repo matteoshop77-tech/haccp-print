@@ -17,7 +17,6 @@
     user-select: none;
   }
 
-  /* Scrollbar */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
@@ -25,33 +24,32 @@
 }
 
 @layer components {
-  /* ── Pill / badge ── */
   .badge {
     @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border;
   }
   .badge-brand {
-    @apply badge bg-brand-muted text-brand-light border-brand-border;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-brand-muted text-brand-light border border-brand-border;
   }
   .badge-amber {
-    @apply badge bg-amber-muted text-amber border border-amber/25;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-amber-muted text-amber border border-amber;
   }
   .badge-coral {
-    @apply badge bg-coral-muted text-coral border border-coral/25;
+    @apply inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium
+           bg-coral-muted text-coral border border-coral;
   }
 
-  /* ── Card ── */
   .card {
     @apply bg-app-surface border border-app-border rounded-lg;
   }
   .card-interactive {
-    @apply card cursor-pointer transition-colors duration-150
-           hover:border-app-border-hover;
+    @apply card cursor-pointer transition-colors duration-150 hover:border-app-border-hover;
   }
   .card-selected {
-    @apply card border-brand/40 bg-brand-muted/40;
+    @apply bg-brand-muted border border-brand-border rounded-lg;
   }
 
-  /* ── Button ── */
   .btn {
     @apply inline-flex items-center justify-center gap-2 px-4 py-2
            rounded-md text-sm font-medium transition-all duration-150
@@ -61,44 +59,46 @@
     @apply btn bg-brand text-white hover:bg-brand-dark active:scale-[0.98];
   }
   .btn-ghost {
-    @apply btn bg-transparent border border-app-border text-ink-secondary
-           hover:border-app-border-hover hover:text-ink-primary active:scale-[0.98];
+    @apply btn bg-transparent border border-app-border
+           hover:border-app-border-hover active:scale-[0.98];
+    color: rgba(255,255,255,0.55);
   }
+  .btn-ghost:hover { color: rgba(255,255,255,0.92); }
   .btn-danger {
-    @apply btn bg-coral/10 border border-coral/25 text-coral
-           hover:bg-coral/20 active:scale-[0.98];
+    @apply btn bg-coral-muted border border-coral text-coral hover:bg-coral active:scale-[0.98];
   }
 
-  /* ── Input ── */
   .input {
     @apply w-full bg-app-surface border border-app-border rounded-md
-           px-3 py-2 text-sm text-ink-primary placeholder-ink-muted
-           focus:outline-none focus:border-brand/50 focus:ring-1 focus:ring-brand/20
+           px-3 py-2 text-sm
+           focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand
            transition-colors duration-150;
+    color: rgba(255,255,255,0.92);
   }
+  .input::placeholder { color: rgba(255,255,255,0.28); }
 
-  /* ── Sidebar nav item ── */
   .nav-item {
     @apply flex items-center justify-center w-10 h-10 rounded-md
-           text-ink-muted cursor-pointer transition-colors duration-150
-           hover:text-ink-secondary hover:bg-white/5;
+           cursor-pointer transition-colors duration-150;
+    color: rgba(255,255,255,0.28);
   }
+  .nav-item:hover { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.05); }
+
   .nav-item-active {
-    @apply nav-item text-brand-light bg-brand-muted;
+    @apply flex items-center justify-center w-10 h-10 rounded-md cursor-pointer
+           bg-brand-muted text-brand-light;
   }
 
-  /* ── Section label ── */
   .section-label {
-    @apply text-2xs font-medium text-ink-faint uppercase tracking-widest;
+    @apply text-xs font-medium uppercase tracking-widest;
+    color: rgba(255,255,255,0.28);
+    font-size: 10px;
   }
 
-  /* ── Toggle ── */
   .toggle-track {
-    @apply relative inline-flex w-9 h-5 rounded-full cursor-pointer
-           transition-colors duration-200;
+    @apply relative inline-flex w-9 h-5 rounded-full cursor-pointer transition-colors duration-200;
   }
   .toggle-thumb {
-    @apply absolute top-0.5 w-4 h-4 rounded-full bg-white
-           transition-transform duration-200 shadow-sm;
+    @apply absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200;
   }
 }
