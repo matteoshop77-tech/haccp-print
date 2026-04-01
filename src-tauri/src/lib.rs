@@ -1,87 +1,75 @@
-use tauri::Manager;
-
-/// Called by the React frontend to print a label.
-/// In production this sends the job to the Brother QL-800 via
-/// the Windows print spooler (standard printer API).
-///
-/// For now it uses the system default printer via a simple
-/// text print job — Brother P-touch drivers expose the printer
-/// as a normal Windows printer once installed, so this works
-/// without any USB-raw hacks.
 #[tauri::command]
-fn print_label(
-    text: String,
+fn print_label_image(
+    png_base64: String,
     copies: u32,
-    printer_name: Option<String>,
 ) -> Result<(), String> {
-    // On Windows, delegate to PowerShell so we don't need a
-    // heavy print crate. This is reliable for the QL-800 with
-    // official Brother drivers installed.
     #[cfg(target_os = "windows")]
     {
-        let printer = printer_name.unwrap_or_else(|| detect_brother_printer());
+        use std::io::Write;
+
+        // Decode base64 PNG
+        let png_bytes = base64::decode(&png_base64)
+            .map_err(|e| format!("Base64 decode error: {e}"))?;
+
+        // Write PNG to a temp file
+        let temp_path = std::env::temp_dir().join("haccprint_label.png");
+        let mut f = std::fs::File::create(&temp_path)
+            .map_err(|e| format!("Cannot create temp file: {e}"))?;
+        f.write_all(&png_bytes)
+            .map_err(|e| format!("Cannot write temp file: {e}"))?;
+        drop(f);
+
+        let temp_str = temp_path.to_string_lossy();
+
+        // Find Brother printer
+        let printer = detect_brother_printer();
+
         for _ in 0..copies {
             let script = format!(
                 r#"
-$text = @'
-{text}
-'@
-$bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
-$stream = [System.IO.MemoryStream]::new($bytes)
-$job = New-Object -ComObject WScript.Network
-# Use .NET printing for reliability
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName System.Windows.Forms
+
+$img = [System.Drawing.Image]::FromFile("{temp}")
 $pd = New-Object System.Drawing.Printing.PrintDocument
 $pd.PrinterSettings.PrinterName = "{printer}"
+$pd.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0,0,0,0)
+$pd.DefaultPageSettings.PaperSize = New-Object System.Drawing.Printing.PaperSize("Custom", [int]($img.Width / 3.96), [int]($img.Height / 3.96))
+
 $pd.add_PrintPage({{
     param($s, $e)
-    $font = New-Object System.Drawing.Font("Arial", 10)
-    $e.Graphics.DrawString($text, $font, [System.Drawing.Brushes]::Black, 10, 10)
+    $e.Graphics.DrawImage($img, 0, 0, $e.PageBounds.Width, $e.PageBounds.Height)
     $e.HasMorePages = $false
 }})
 $pd.Print()
+$img.Dispose()
 "#,
-                text = text.replace('\'', "''"),
+                temp = temp_str.replace('\\', "\\\\"),
                 printer = printer
             );
 
             std::process::Command::new("powershell")
-                .args(["-NoProfile", "-Command", &script])
+                .args(["-NoProfile", "-NonInteractive", "-Command", &script])
                 .output()
                 .map_err(|e| format!("Print failed: {e}"))?;
         }
+
         Ok(())
     }
 
     #[cfg(not(target_os = "windows"))]
     {
-        // macOS / Linux fallback via lpr
-        let _ = printer_name;
-        for _ in 0..copies {
-            let mut child = std::process::Command::new("lpr")
-                .stdin(std::process::Stdio::piped())
-                .spawn()
-                .map_err(|e| format!("lpr failed: {e}"))?;
-            if let Some(stdin) = child.stdin.as_mut() {
-                use std::io::Write;
-                stdin
-                    .write_all(text.as_bytes())
-                    .map_err(|e| format!("Write failed: {e}"))?;
-            }
-            child.wait().map_err(|e| format!("lpr wait failed: {e}"))?;
-        }
-        Ok(())
+        Err("Printing only supported on Windows".to_string())
     }
 }
 
-/// Try to find the Brother QL printer name from the Windows printer list.
 #[cfg(target_os = "windows")]
 fn detect_brother_printer() -> String {
     let output = std::process::Command::new("powershell")
         .args([
             "-NoProfile",
             "-Command",
-            "Get-Printer | Where-Object { $_.Name -like '*Brother*' -or $_.Name -like '*QL*' } | Select-Object -First 1 -ExpandProperty Name",
+            "Get-Printer | Where-Object { $_.Name -like '*Brother*' } | Select-Object -First 1 -ExpandProperty Name",
         ])
         .output();
 
@@ -103,7 +91,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![print_label])
+        .invoke_handler(tauri::generate_handler![print_label_image])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
