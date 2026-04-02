@@ -74,8 +74,14 @@ mod win_print {
             bgra.push(px[2]); bgra.push(px[1]); bgra.push(px[0]); bgra.push(px[3]);
         }
 
+        // Calcola le dimensioni fisiche reali della pagina in base all'immagine.
+        // L'altezza fisica = larghezza fisica × (altezza immagine / larghezza immagine)
+        // Questo garantisce che la pagina abbia esattamente le proporzioni del canvas.
+        let aspect = img_h as f64 / img_w as f64;
+        let real_h_mm = label_w_mm * aspect;
+
         let paper_w = (label_w_mm * 10.0).round() as i16;
-        let paper_h = (label_h_mm * 10.0).round() as i16;
+        let paper_h = (real_h_mm   * 10.0).round() as i16;
 
         let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
         devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
@@ -111,13 +117,11 @@ mod win_print {
             return Err("GetDeviceCaps ha restituito dimensioni non valide.".to_string());
         }
 
-        // Scala per larghezza: l'immagine riempie tutta la larghezza della stampante.
-        // L'altezza si adatta proporzionalmente (fit-to-width).
-        let scale  = page_w_px as f64 / img_w as f64;
+        // Scala per larghezza: l'immagine riempie tutta la larghezza.
+        // L'altezza segue proporzionalmente — non viene mai tagliata
+        // perché la pagina è stata dimensionata sulle proporzioni reali dell'immagine.
         let dest_w = page_w_px;
-        let dest_h = (img_h as f64 * scale).round() as i32;
-        let dest_x = 0;
-        let dest_y = 0;
+        let dest_h = page_h_px;
 
         let mut doc_name_buf = to_wide("HACCPrint Label");
         let doc_info = DOCINFOW {
@@ -156,7 +160,7 @@ mod win_print {
                 StartPage(dc);
                 StretchDIBits(
                     dc,
-                    dest_x, dest_y, dest_w, dest_h,
+                    0, 0, dest_w, dest_h,
                     0, 0, img_w as i32, img_h as i32,
                     bgra.as_ptr() as *const _,
                     &bmi,

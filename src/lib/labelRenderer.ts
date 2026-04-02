@@ -61,8 +61,8 @@ function drawText(
 }
 
 function divider(ctx: CanvasRenderingContext2D, y: number) {
-  ctx.fillStyle = "#cccccc";
-  ctx.fillRect(MARGIN_PX, y, CONTENT_W, SCALE);
+  ctx.fillStyle = "#aaaaaa";
+  ctx.fillRect(MARGIN_PX, y, CONTENT_W, SCALE * 3);
 }
 
 function calcHeight(template: LabelTemplate, lang: "en" | "hu"): number {
