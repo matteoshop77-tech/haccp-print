@@ -23,9 +23,9 @@ const translations = {
     home_create_label:  "Create label",
 
     /* Label types */
-    type_bontas:        "Bontás",
-    type_ervenyesseg:   "Érvényes",
-    type_termek_leiras: "Termék leírás",
+    type_bontas:        "Opening date",
+    type_ervenyesseg:   "Use by",
+    type_termek_leiras: "Product info",
     type_custom:        "Custom",
 
     /* Print screen */

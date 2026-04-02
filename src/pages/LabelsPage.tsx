@@ -21,7 +21,7 @@ const typeBg: Record<string, string> = {
   custom:        "bg-violet",
 };
 
-function BontasCard({ onPrint }: { onPrint: (copies: number) => void }) {
+function BontasCard({ onPrint, lang }: { onPrint: (copies: number) => void; lang: "en" | "hu" }) {
   const today = format(new Date(), "dd.MM.yyyy");
   const [copies, setCopies] = useState(1);
   return (
@@ -35,8 +35,8 @@ function BontasCard({ onPrint }: { onPrint: (copies: number) => void }) {
           <div className="w-2.5 h-2.5 rounded-full bg-white" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-white">Bontás napja</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — today's date, automatic</p>
+          <p className="text-sm font-semibold text-white">{lang === "hu" ? "Bontás napja" : "Opening date"}</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — {lang === "hu" ? "automatikus dátum" : "today's date, automatic"}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -377,7 +377,7 @@ export default function LabelsPage() {
     if (settings.haccpLogEnabled) {
       addPrintJob({
         templateId:   "bontas-fixed",
-        templateName: "Bontás napja",
+        templateName: lang === "hu" ? "Bontás napja" : "Opening date",
         labelType:    "bontas",
         copies,
         preparedDate: today,
@@ -414,7 +414,7 @@ export default function LabelsPage() {
 
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <div className="grid grid-cols-2 gap-3">
-          <BontasCard onPrint={handleBontasPrint} />
+          <BontasCard onPrint={handleBontasPrint} lang={lang} />
           {filtered.length === 0 ? (
             <div className="col-span-2 text-sm text-center py-8 text-ink-muted">
               No labels found.
@@ -437,7 +437,7 @@ export default function LabelsPage() {
         {bontasPrinted && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "#D4850A" }}>
-            Bontás printed ✓
+            {lang === "hu" ? "Bontás nyomtatva ✓" : "Opening date printed ✓"}
           </div>
         )}
       </div>
