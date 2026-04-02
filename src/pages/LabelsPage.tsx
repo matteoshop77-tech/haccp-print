@@ -21,6 +21,12 @@ const typeBg: Record<string, string> = {
   custom:        "bg-violet",
 };
 
+const typeActiveClass: Record<string, string> = {
+  ervenyesseg:   "border-brand/40 bg-brand/10 text-brand-light",
+  termek_leiras: "border-sky/40 bg-sky/10 text-sky",
+  custom:        "border-violet/40 bg-violet/10 text-violet",
+};
+
 function BontasCard({ onPrint, lang }: { onPrint: (copies: number) => void; lang: "en" | "hu" }) {
   const today = format(new Date(), "dd.MM.yyyy");
   const [copies, setCopies] = useState(1);
@@ -109,14 +115,14 @@ function LabelForm({
 
   const isValid =
     type === "custom"
-      ? description.trim().length > 0
+      ? name.trim().length > 0 && description.trim().length > 0
       : name.trim() && category.trim() && shelfLife > 0 &&
         (type !== "termek_leiras" || description.trim());
 
   const handleSubmit = () => {
     if (!isValid) return;
     onSave({
-      name:          type === "custom" ? "Custom" : name.trim(),
+      name:          name.trim() || "Custom",
       category:      type === "custom" ? "Custom" : category.trim(),
       type,
       shelfLifeDays: type === "custom" ? 1 : shelfLife,
@@ -149,7 +155,7 @@ function LabelForm({
                   className={clsx(
                     "py-2.5 px-3 rounded-lg border text-sm transition-colors text-center",
                     type === tp.value
-                      ? "border-brand bg-brand-muted text-brand-light"
+                      ? typeActiveClass[tp.value]
                       : "border-app-border bg-app-elevated text-ink-secondary hover:border-app-border-hover"
                   )}
                 >
@@ -160,19 +166,32 @@ function LabelForm({
           </div>
 
           {type === "custom" && (
-            <div>
-              <label className="section-label mb-1.5 block">
-                Text <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
-              </label>
-              <textarea
-                className="input resize-none"
-                rows={5}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Write the label text..."
-                style={{ lineHeight: "1.6" }}
-              />
-            </div>
+            <>
+              <div>
+                <label className="section-label mb-1.5 block">
+                  Label name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                </label>
+                <input
+                  className="input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Allergy notice"
+                />
+              </div>
+              <div>
+                <label className="section-label mb-1.5 block">
+                  Text <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                </label>
+                <textarea
+                  className="input resize-none"
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Write the label text..."
+                  style={{ lineHeight: "1.6" }}
+                />
+              </div>
+            </>
           )}
 
           {type === "ervenyesseg" && (
@@ -329,8 +348,14 @@ function LabelCard({
       )}
 
       <div className="flex items-center justify-between pt-1">
-        <span className="text-ink-muted" style={{ fontSize: "10px" }}>
-          {t(`type_${template.type}` as Parameters<typeof t>[0], lang)} · printed {template.printCount}×
+        <span className={clsx(
+          "text-xs px-2 py-0.5 rounded-full font-medium",
+          template.type === "ervenyesseg"   && "bg-brand/10 text-brand-light",
+          template.type === "bontas"        && "bg-amber/10 text-amber",
+          template.type === "termek_leiras" && "bg-sky/10 text-sky",
+          template.type === "custom"        && "bg-violet/10 text-violet",
+        )}>
+          {t(`type_${template.type}` as Parameters<typeof t>[0], lang)}
         </span>
         <button onClick={() => onPrint(template)} className="btn-primary py-1.5 px-3 text-xs rounded-md">
           Print
