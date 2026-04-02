@@ -13,13 +13,6 @@ const typeColors: Record<string, { bg: string; text: string }> = {
   custom:        { bg: "rgba(107,99,204,0.12)",   text: "#4A44AA" },
 };
 
-const typeLabels: Record<string, string> = {
-  ervenyesseg:   "Érvényes",
-  bontas:        "Bontás",
-  termek_leiras: "Termék leírás",
-  custom:        "Custom",
-};
-
 type Filter = "all" | "today" | "week";
 
 function StatCard({ value, label }: { value: number | string; label: string }) {
@@ -31,7 +24,7 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
   );
 }
 
-function JobRow({ job }: { job: PrintJob }) {
+function JobRow({ job, lang }: { job: PrintJob; lang: "en" | "hu" }) {
   const colors = typeColors[job.labelType] ?? typeColors.custom;
   return (
     <tr className="border-b border-app-border hover:bg-black/[0.02] transition-colors">
@@ -49,17 +42,17 @@ function JobRow({ job }: { job: PrintJob }) {
       <td className="py-3 pr-4">
         <span className="text-xs px-2 py-0.5 rounded-full font-medium"
           style={{ background: colors.bg, color: colors.text }}>
-          {typeLabels[job.labelType] ?? job.labelType}
+          {t(`type_${job.labelType}` as Parameters<typeof t>[0], lang)}
         </span>
       </td>
       <td className="py-3 pr-4 text-sm font-medium text-ink-secondary">
         ×{job.copies}
       </td>
       <td className="py-3 pr-4 text-xs text-brand">
-  {job.labelType === "bontas" || job.labelType === "custom"
-    ? "—"
-    : job.expiryDate ?? "—"}
-</td>
+        {job.labelType === "bontas" || job.labelType === "custom"
+          ? "—"
+          : job.expiryDate ?? "—"}
+      </td>
       <td className="py-3 text-xs text-ink-muted">
         {job.operatorName ?? "—"}
       </td>
@@ -111,6 +104,17 @@ export default function LogPage() {
     URL.revokeObjectURL(url);
   };
 
+  const filterKeys: { key: Filter; label: Parameters<typeof t>[0] }[] = [
+    { key: "all",   label: "log_filter_all" },
+    { key: "today", label: "log_filter_today" },
+    { key: "week",  label: "log_filter_week" },
+  ];
+
+  const colHeaders: Parameters<typeof t>[0][] = [
+    "log_col_date", "log_col_time", "log_col_product",
+    "log_col_type", "log_col_copies", "log_col_expiry", "log_col_operator",
+  ];
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -119,32 +123,32 @@ export default function LogPage() {
         <h1 className="text-xl font-medium text-ink-primary">{t("nav_log", lang)}</h1>
         <button onClick={exportCSV} className="btn-ghost py-1.5 px-3 text-sm rounded-md">
           <FileDown size={14} />
-          Export CSV
+          {t("log_export_csv", lang)}
         </button>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2.5 px-6 pt-4 flex-shrink-0">
-        <StatCard value={todayCount} label="Printed today" />
-        <StatCard value={weekCount}  label="This week" />
-        <StatCard value={totalCount} label="Total" />
+        <StatCard value={todayCount} label={t("log_printed_today", lang)} />
+        <StatCard value={weekCount}  label={t("log_this_week", lang)} />
+        <StatCard value={totalCount} label={t("log_total", lang)} />
       </div>
 
       {/* Filtri + ricerca */}
       <div className="flex items-center gap-3 px-6 pt-3 pb-1 flex-shrink-0">
         <div className="flex gap-1 p-0.5 rounded-lg border border-app-border bg-app-surface">
-          {(["all", "today", "week"] as Filter[]).map((f) => (
+          {filterKeys.map(({ key, label }) => (
             <button
-              key={f}
-              onClick={() => setFilter(f)}
+              key={key}
+              onClick={() => setFilter(key)}
               className={clsx(
                 "px-3 py-1.5 rounded-md text-xs transition-colors",
-                filter === f
+                filter === key
                   ? "bg-brand text-white"
                   : "text-ink-secondary hover:text-ink-primary"
               )}
             >
-              {f === "all" ? "All" : f === "today" ? "Today" : "This week"}
+              {t(label, lang)}
             </button>
           ))}
         </div>
@@ -166,23 +170,23 @@ export default function LogPage() {
           <div className="flex flex-col items-center justify-center py-16 gap-3">
             <FileText size={32} className="text-ink-faint" />
             <p className="text-sm text-ink-muted">
-              {jobs.length === 0 ? "No prints logged yet." : "No results for this filter."}
+              {jobs.length === 0 ? t("log_empty", lang) : t("log_no_results", lang)}
             </p>
           </div>
         ) : (
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-app-border">
-                {["Date", "Time", "Product", "Type", "Copies", "Expiry", "Operator"].map((h) => (
+                {colHeaders.map((h) => (
                   <th key={h} className="text-left py-2 pr-4 font-medium section-label">
-                    {h}
+                    {t(h, lang)}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.map((job) => (
-                <JobRow key={job.id} job={job} />
+                <JobRow key={job.id} job={job} lang={lang} />
               ))}
             </tbody>
           </table>

@@ -5,6 +5,7 @@ import { useStore } from "@/store/useStore";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate, LabelType, IndustryProfile } from "@/lib/types";
 import { PrintModal } from "@/components/labels/PrintModal";
+import { printLabel } from "@/lib/printService";
 import clsx from "clsx";
 
 const typeColor: Record<string, string> = {
@@ -41,8 +42,10 @@ function BontasCard({ onPrint, lang }: { onPrint: (copies: number) => void; lang
           <div className="w-2.5 h-2.5 rounded-full bg-white" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-white">{lang === "hu" ? "Bontás napja" : "Opening date"}</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — {lang === "hu" ? "automatikus dátum" : "today's date, automatic"}</p>
+          <p className="text-sm font-semibold text-white">{t("type_bontas", lang)}</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
+            {today} — {lang === "hu" ? "automatikus dátum" : "today's date, automatic"}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -69,14 +72,14 @@ function BontasCard({ onPrint, lang }: { onPrint: (copies: number) => void; lang
           style={{ background: "white" }}
         >
           <Printer size={12} />
-          Print
+          {t("print_btn", lang)}
         </button>
       </div>
     </div>
   );
 }
 
-function CategorySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function CategorySelect({ value, onChange, lang }: { value: string; onChange: (v: string) => void; lang: "en" | "hu" }) {
   const categories = useStore((s) => s.categories);
   return (
     <select
@@ -85,7 +88,7 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
       className="input"
       style={{ appearance: "auto" }}
     >
-      <option value="">Select category...</option>
+      <option value="">{t("labels_select_category", lang)}</option>
       {categories.map((c) => (
         <option key={c} value={c}>{c}</option>
       ))}
@@ -94,11 +97,12 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
 }
 
 function LabelForm({
-  initial, onSave, onCancel,
+  initial, onSave, onCancel, lang,
 }: {
   initial?: LabelTemplate;
   onSave: (data: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
   onCancel: () => void;
+  lang: "en" | "hu";
 }) {
   const [type, setType]               = useState<LabelType>(initial?.type ?? "ervenyesseg");
   const [name, setName]               = useState(initial?.name ?? "");
@@ -107,10 +111,10 @@ function LabelForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [allergens, setAllergens]     = useState(initial?.allergens ?? "");
 
-  const types: { value: LabelType; label: string }[] = [
-    { value: "ervenyesseg",   label: "Érvényes" },
-    { value: "termek_leiras", label: "Termék leírás" },
-    { value: "custom",        label: "Custom" },
+  const types: { value: LabelType; labelKey: Parameters<typeof t>[0] }[] = [
+    { value: "ervenyesseg",   labelKey: "type_ervenyesseg" },
+    { value: "termek_leiras", labelKey: "type_termek_leiras" },
+    { value: "custom",        labelKey: "type_custom" },
   ];
 
   const isValid =
@@ -139,14 +143,14 @@ function LabelForm({
       <div className="bg-app-surface border border-app-border rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-xl">
         <div className="flex items-center justify-between p-5 border-b border-app-border">
           <h2 className="text-lg font-medium text-ink-primary">
-            {initial ? "Edit label" : "New label"}
+            {initial ? t("labels_form_edit", lang) : t("labels_form_new", lang)}
           </h2>
           <button onClick={onCancel} className="nav-item w-7 h-7"><X size={15} /></button>
         </div>
 
         <div className="p-5 flex flex-col gap-4">
           <div>
-            <label className="section-label mb-2 block">Label type</label>
+            <label className="section-label mb-2 block">{t("labels_form_type", lang)}</label>
             <div className="grid grid-cols-3 gap-2">
               {types.map((tp) => (
                 <button
@@ -159,7 +163,7 @@ function LabelForm({
                       : "border-app-border bg-app-elevated text-ink-secondary hover:border-app-border-hover"
                   )}
                 >
-                  {tp.label}
+                  {t(tp.labelKey, lang)}
                 </button>
               ))}
             </div>
@@ -169,7 +173,7 @@ function LabelForm({
             <>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Label name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_name", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <input
                   className="input"
@@ -180,7 +184,7 @@ function LabelForm({
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Text <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_text", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <textarea
                   className="input resize-none"
@@ -198,19 +202,19 @@ function LabelForm({
             <>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Product name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_product", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tiramisù" />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Category <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_category", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <CategorySelect value={category} onChange={setCategory} />
+                <CategorySelect value={category} onChange={setCategory} lang={lang} />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Shelf life (days) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_shelf", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
@@ -218,7 +222,7 @@ function LabelForm({
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
-                    {shelfLife} {shelfLife === 1 ? "day" : "days"}
+                    {shelfLife} {shelfLife === 1 ? t("day", lang) : t("days", lang)}
                   </span>
                   <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
                     className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
@@ -233,19 +237,19 @@ function LabelForm({
             <>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Product name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_product", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Panna cotta" />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Category <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_category", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <CategorySelect value={category} onChange={setCategory} />
+                <CategorySelect value={category} onChange={setCategory} lang={lang} />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Shelf life (days) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_shelf", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
@@ -253,7 +257,7 @@ function LabelForm({
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
-                    {shelfLife} {shelfLife === 1 ? "day" : "days"}
+                    {shelfLife} {shelfLife === 1 ? t("day", lang) : t("days", lang)}
                   </span>
                   <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
                     className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
@@ -263,13 +267,13 @@ function LabelForm({
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Description <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  {t("labels_form_description", lang)} <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ingredients, notes..." />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Allergens <span className="text-ink-secondary normal-case" style={{ fontSize: "10px" }}>(optional)</span>
+                  {t("labels_form_allergens", lang)} <span className="text-ink-secondary normal-case" style={{ fontSize: "10px" }}>({t("labels_form_optional", lang)})</span>
                 </label>
                 <input className="input" value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="e.g. Gluten, Milk" />
               </div>
@@ -278,10 +282,10 @@ function LabelForm({
         </div>
 
         <div className="flex gap-2 px-5 pb-5 pt-3 border-t border-app-border">
-          <button onClick={onCancel} className="btn-ghost flex-1">Cancel</button>
+          <button onClick={onCancel} className="btn-ghost flex-1">{t("cancel", lang)}</button>
           <button onClick={handleSubmit} disabled={!isValid} className="btn-primary flex-[2]">
             <Check size={15} />
-            {initial ? "Save changes" : "Create label"}
+            {initial ? t("labels_form_save", lang) : t("labels_form_create", lang)}
           </button>
         </div>
       </div>
@@ -320,7 +324,6 @@ function LabelCard({
                 ? "text-brand bg-brand-muted"
                 : "text-ink-muted hover:text-brand hover:bg-brand-muted"
             )}
-            title="Pin"
           >
             <Pin size={13} />
           </button>
@@ -328,7 +331,6 @@ function LabelCard({
             onClick={() => onEdit(template)}
             className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
                        text-ink-muted hover:text-amber hover:bg-amber-muted"
-            title="Edit"
           >
             <Pencil size={13} />
           </button>
@@ -336,7 +338,6 @@ function LabelCard({
             onClick={() => onDelete(template.id)}
             className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
                        text-ink-muted hover:text-coral hover:bg-coral-muted"
-            title="Delete"
           >
             <Trash2 size={13} />
           </button>
@@ -358,7 +359,7 @@ function LabelCard({
           {t(`type_${template.type}` as Parameters<typeof t>[0], lang)}
         </span>
         <button onClick={() => onPrint(template)} className="btn-primary py-1.5 px-3 text-xs rounded-md">
-          Print
+          {t("print_btn", lang)}
         </button>
       </div>
     </div>
@@ -379,7 +380,7 @@ export default function LabelsPage() {
   const [selected,      setSelected]      = useState<LabelTemplate | null>(null);
   const [showForm,      setShowForm]      = useState(false);
   const [editTarget,    setEditTarget]    = useState<LabelTemplate | null>(null);
-  const [bontasPrinted, setBontasPrinted] = useState(false);
+  const [bontasToast,   setBontasToast]   = useState(false);
 
   const filtered = templates.filter((tmpl) =>
     tmpl.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -397,12 +398,31 @@ export default function LabelsPage() {
     setEditTarget(null);
   };
 
-  const handleBontasPrint = (copies: number) => {
-    const today = format(new Date(), "yyyy-MM-dd");
+  const handleBontasPrint = async (copies: number) => {
+    const now = new Date();
+    const today = format(now, "yyyy-MM-dd");
+
+    const bontasTemplate: LabelTemplate = {
+      id:            "bontas-fixed",
+      name:          t("type_bontas", lang),
+      category:      t("type_bontas", lang),
+      type:          "bontas",
+      shelfLifeDays: 0,
+      description:   null,
+      allergens:     null,
+      profile:       settings.profile,
+      pinned:        false,
+      printCount:    0,
+      createdAt:     now.toISOString(),
+      updatedAt:     now.toISOString(),
+    };
+
+    await printLabel(bontasTemplate, copies, now, lang, settings.printerName);
+
     if (settings.haccpLogEnabled) {
       addPrintJob({
         templateId:   "bontas-fixed",
-        templateName: lang === "hu" ? "Bontás napja" : "Opening date",
+        templateName: t("type_bontas", lang),
         labelType:    "bontas",
         copies,
         preparedDate: today,
@@ -410,8 +430,8 @@ export default function LabelsPage() {
         operatorName: settings.operatorName || null,
       });
     }
-    setBontasPrinted(true);
-    setTimeout(() => setBontasPrinted(false), 2000);
+    setBontasToast(true);
+    setTimeout(() => setBontasToast(false), 2000);
   };
 
   return (
@@ -442,7 +462,7 @@ export default function LabelsPage() {
           <BontasCard onPrint={handleBontasPrint} lang={lang} />
           {filtered.length === 0 ? (
             <div className="col-span-2 text-sm text-center py-8 text-ink-muted">
-              No labels found.
+              {t("labels_none", lang)}
             </div>
           ) : (
             filtered.map((tmpl) => (
@@ -459,17 +479,17 @@ export default function LabelsPage() {
           )}
         </div>
 
-        {bontasPrinted && (
+        {bontasToast && (
           <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium text-white"
             style={{ background: "#D4850A" }}>
-            {lang === "hu" ? "Bontás nyomtatva ✓" : "Opening date printed ✓"}
+            {t("type_bontas", lang)} ✓
           </div>
         )}
       </div>
 
       {selected && <PrintModal template={selected} onClose={() => setSelected(null)} />}
-      {showForm && <LabelForm onSave={handleSaveNew} onCancel={() => setShowForm(false)} />}
-      {editTarget && <LabelForm initial={editTarget} onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} />}
+      {showForm && <LabelForm onSave={handleSaveNew} onCancel={() => setShowForm(false)} lang={lang} />}
+      {editTarget && <LabelForm initial={editTarget} onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} lang={lang} />}
     </div>
   );
 }

@@ -16,7 +16,6 @@ const typeBadge: Record<string, string> = {
   custom:        "bg-violet/10 text-violet border border-violet/20",
 };
 
-/* ── Anteprima Canvas reale ── */
 function LabelPreview({ template, preparedDate, lang }: {
   template: LabelTemplate;
   preparedDate: Date;
@@ -27,7 +26,6 @@ function LabelPreview({ template, preparedDate, lang }: {
   useEffect(() => {
     if (!containerRef.current) return;
     const canvas = renderLabelToCanvas(template, preparedDate, lang);
-    // Scala il canvas per farlo stare nel modal (larghezza max 340px)
     const maxW = containerRef.current.clientWidth || 340;
     const scale = maxW / canvas.width;
     canvas.style.width  = `${canvas.width * scale}px`;
@@ -109,9 +107,9 @@ export function PrintModal({ template, onClose }: PrintModalProps) {
           </div>
         </div>
 
-        {/* Anteprima etichetta reale */}
+        {/* Preview */}
         <div className="p-5 pb-3">
-          <p className="section-label mb-2">Label preview</p>
+          <p className="section-label mb-2">{t("print_preview", lang)}</p>
           <LabelPreview template={template} preparedDate={today} lang={lang} />
         </div>
 
@@ -174,7 +172,7 @@ export function PrintModal({ template, onClose }: PrintModalProps) {
           >
             <Printer size={15} />
             {loading
-              ? "Printing…"
+              ? t("print_printing", lang)
               : `${t("print_btn", lang)} ${copies} ${copies === 1 ? t("print_label", lang) : t("print_labels", lang)}`
             }
           </button>

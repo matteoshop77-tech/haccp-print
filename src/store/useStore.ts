@@ -15,7 +15,7 @@ const defaultCategories = [
 const defaultSettings: AppSettings = {
   profile:             "restaurant",
   language:            "en",
-  theme:               "dark",
+  theme:               "light",
   operatorName:        "",
   printerName:         null,
   autoCalculateExpiry: true,

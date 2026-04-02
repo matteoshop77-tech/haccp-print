@@ -331,7 +331,7 @@ export default function HomePage() {
           <div className="mt-4">
             <p className="section-label mb-2">{t("home_recent", lang)}</p>
             {recentJobs.map((job) => {
-              const tmpl = templates.find((t) => t.id === job.templateId);
+              templates.find((t) => t.id === job.templateId);
               return (
                 <RecentRow
                   key={job.id}
