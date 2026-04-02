@@ -1,7 +1,7 @@
 import { addDays, format } from "date-fns";
 import type { LabelTemplate } from "@/lib/types";
 
-const PRINT_WIDTH_PX = 696;
+const PRINT_WIDTH_PX = 732;
 const MARGIN_PX      = 20;
 const CONTENT_WIDTH  = PRINT_WIDTH_PX - MARGIN_PX * 2;
 
