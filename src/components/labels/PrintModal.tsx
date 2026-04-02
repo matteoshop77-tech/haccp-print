@@ -67,7 +67,7 @@ export function PrintModal({ template, onClose }: PrintModalProps) {
   const handlePrint = async () => {
     setLoading(true);
     setError(null);
-    const result = await printLabel(template, copies, today, lang);
+    const result = await printLabel(template, copies, today, lang, settings.printerName);
     setLoading(false);
     if (!result.success) {
       setError(result.error ?? "Unknown error");

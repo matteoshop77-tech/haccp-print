@@ -10,7 +10,7 @@ const CONTENT_W   = LABEL_W_PX - MARGIN_PX * 2;
 const F_NAME   = 38 * SCALE;
 const F_DESC   = 26 * SCALE;
 const F_LABEL  = 22 * SCALE;
-const F_VALUE  = 28 * SCALE;
+const F_VALUE  = 34 * SCALE;
 const F_ALLERG = 24 * SCALE;
 
 const GAP_SM  = 8  * SCALE;
