@@ -293,28 +293,34 @@ function LabelCard({
           </div>
         </div>
         <div className="flex items-center gap-1">
+          {/* Pin — evidenziato se attivo */}
           <button
             onClick={() => onPin(template.id, !template.pinned)}
             className={clsx(
               "flex items-center justify-center w-7 h-7 rounded-md transition-colors",
               template.pinned
                 ? "text-brand bg-brand-muted"
-                : "text-ink-muted hover:text-ink-secondary hover:bg-black/5 opacity-0 group-hover:opacity-100"
+                : "text-ink-muted hover:text-brand hover:bg-brand-muted"
             )}
+            title="Pin"
           >
             <Pin size={13} />
           </button>
+          {/* Modifica — giallo al hover */}
           <button
             onClick={() => onEdit(template)}
-            className="flex items-center justify-center w-7 h-7 rounded-md text-ink-muted
-                       hover:text-ink-secondary hover:bg-black/5 transition-colors opacity-0 group-hover:opacity-100"
+            className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
+                       text-ink-muted hover:text-amber hover:bg-amber-muted"
+            title="Edit"
           >
             <Pencil size={13} />
           </button>
+          {/* Cancella — rosso al hover */}
           <button
             onClick={() => onDelete(template.id)}
-            className="flex items-center justify-center w-7 h-7 rounded-md text-ink-muted
-                       hover:text-coral transition-colors opacity-0 group-hover:opacity-100"
+            className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
+                       text-ink-muted hover:text-coral hover:bg-coral-muted"
+            title="Delete"
           >
             <Trash2 size={13} />
           </button>

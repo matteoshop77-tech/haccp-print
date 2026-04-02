@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { format } from "date-fns";
+import { format, addDays, isTomorrow } from "date-fns";
 import { Printer, Plus, Minus } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate } from "@/lib/types";
+import { printLabel } from "@/lib/printService";
 import clsx from "clsx";
 
 /* ── Stat card ── */
@@ -40,42 +41,63 @@ const typeLabel: Record<string, string> = {
 
 /* ── Bontás quick card — fixed first slot ── */
 function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
-  const [copies, setCopies] = useState(1);
+  const [copies, setCopies]   = useState(1);
+  const [loading, setLoading] = useState(false);
   const addPrintJob = useStore((s) => s.addPrintJob);
   const settings    = useStore((s) => s.settings);
+  const lang        = useStore((s) => s.settings.language);
   const today       = format(new Date(), "dd.MM.yyyy");
 
-  const handlePrint = () => {
-    const todayStr = format(new Date(), "yyyy-MM-dd");
-    if (settings.haccpLogEnabled) {
+  const handlePrint = async () => {
+    setLoading(true);
+    const now = new Date();
+
+    const bontasTemplate: LabelTemplate = {
+      id:            "bontas-fixed",
+      name:          "Bontás napja",
+      category:      "Bontás",
+      type:          "bontas",
+      shelfLifeDays: 0,
+      description:   null,
+      allergens:     null,
+      profile:       settings.profile,
+      pinned:        false,
+      printCount:    0,
+      createdAt:     now.toISOString(),
+      updatedAt:     now.toISOString(),
+    };
+
+    const result = await printLabel(bontasTemplate, copies, now, lang, settings.printerName);
+    setLoading(false);
+
+    if (result.success && settings.haccpLogEnabled) {
+      const todayStr = format(now, "yyyy-MM-dd");
       addPrintJob({
         templateId:   "bontas-fixed",
         templateName: "Bontás napja",
         labelType:    "bontas",
         copies,
         preparedDate: todayStr,
-        expiryDate:   todayStr,
+        expiryDate:   todayStr, // Bontás non ha scadenza futura
         operatorName: settings.operatorName || null,
       });
     }
-    onPrinted();
+    if (result.success) onPrinted();
   };
 
   return (
     <div className="rounded-lg p-2.5 flex flex-col justify-between gap-2"
       style={{ background: "#FDF3E3", border: "1px solid #E8B96A" }}>
-      {/* Top */}
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#E8B96A" }} />
           <p className="text-xs font-semibold text-ink-primary truncate leading-tight">Bontás napja</p>
         </div>
-        <span className="text-xs flex-shrink-0 font-medium" style={{ fontSize: "10px", color: "#D4850A" }}>
+        <span className="flex-shrink-0 font-medium" style={{ fontSize: "10px", color: "#D4850A" }}>
           Bontás
         </span>
       </div>
-      <p className="text-xs" style={{ fontSize: "10px", color: "#C8943A" }}>{today}</p>
-      {/* Bottom */}
+      <p style={{ fontSize: "10px", color: "#C8943A" }}>{today}</p>
       <div className="flex items-center gap-1">
         <button
           onClick={() => setCopies((c) => Math.max(1, c - 1))}
@@ -94,45 +116,54 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
         </button>
         <button
           onClick={handlePrint}
-          className="flex-1 flex items-center justify-center gap-1 py-1 rounded font-semibold text-white ml-0.5"
+          disabled={loading}
+          className="flex-1 flex items-center justify-center gap-1 py-1 rounded font-semibold text-white ml-0.5 disabled:opacity-50"
           style={{ background: "#D4850A", fontSize: "10px" }}
         >
           <Printer size={9} />
-          Print
+          {loading ? "…" : "Print"}
         </button>
       </div>
     </div>
   );
 }
 
-/* ── Quick card — compact horizontal ── */
+/* ── Quick card — inline print ── */
 function QuickCard({ template, onPrinted }: {
   template: LabelTemplate;
   onPrinted: (name: string) => void;
 }) {
-  const [copies, setCopies] = useState(1);
+  const [copies, setCopies]   = useState(1);
+  const [loading, setLoading] = useState(false);
   const addPrintJob = useStore((s) => s.addPrintJob);
   const settings    = useStore((s) => s.settings);
+  const lang        = useStore((s) => s.settings.language);
 
-  const handlePrint = () => {
-    const today = format(new Date(), "yyyy-MM-dd");
-    if (settings.haccpLogEnabled) {
+  const handlePrint = async () => {
+    setLoading(true);
+    const now    = new Date();
+    const result = await printLabel(template, copies, now, lang, settings.printerName);
+    setLoading(false);
+
+    if (result.success && settings.haccpLogEnabled) {
+      const preparedStr = format(now, "yyyy-MM-dd");
+      // Calcola la vera data di scadenza basata su shelfLifeDays
+      const expiryStr   = format(addDays(now, template.shelfLifeDays), "yyyy-MM-dd");
       addPrintJob({
         templateId:   template.id,
         templateName: template.name,
         labelType:    template.type,
         copies,
-        preparedDate: today,
-        expiryDate:   today,
+        preparedDate: preparedStr,
+        expiryDate:   expiryStr,
         operatorName: settings.operatorName || null,
       });
     }
-    onPrinted(template.name);
+    if (result.success) onPrinted(template.name);
   };
 
   return (
     <div className="card p-2.5 flex flex-col justify-between gap-2">
-      {/* Top: dot + name + type badge */}
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div
@@ -145,11 +176,9 @@ function QuickCard({ template, onPrinted }: {
           {typeLabel[template.type]}
         </span>
       </div>
-      {/* Meta */}
       <p className="text-ink-muted truncate" style={{ fontSize: "10px" }}>
         {template.shelfLifeDays}d · {template.category}
       </p>
-      {/* Bottom: qty + print */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => setCopies((c) => Math.max(1, c - 1))}
@@ -168,11 +197,12 @@ function QuickCard({ template, onPrinted }: {
         </button>
         <button
           onClick={handlePrint}
-          className="flex-1 flex items-center justify-center gap-1 py-1 rounded text-white font-semibold ml-0.5"
+          disabled={loading}
+          className="flex-1 flex items-center justify-center gap-1 py-1 rounded text-white font-semibold ml-0.5 disabled:opacity-50"
           style={{ background: "#1D9E75", fontSize: "10px" }}
         >
           <Printer size={9} />
-          Print
+          {loading ? "…" : "Print"}
         </button>
       </div>
     </div>
@@ -219,18 +249,26 @@ function RecentRow({ job, onReprint }: {
 
 /* ── Home page ── */
 export default function HomePage() {
-  const navigate    = useNavigate();
-  const lang        = useStore((s) => s.settings.language);
-  const settings    = useStore((s) => s.settings);
-  const templates   = useStore((s) => s.templates);
-  const printJobs   = useStore((s) => s.printJobs);
+  const navigate   = useNavigate();
+  const lang       = useStore((s) => s.settings.language);
+  const settings   = useStore((s) => s.settings);
+  const templates  = useStore((s) => s.templates);
+  const printJobs  = useStore((s) => s.printJobs);
 
   const pinnedTmpl  = templates.filter((tmpl) => tmpl.pinned);
   const recentJobs  = printJobs.slice(0, 4);
   const today       = new Date().toISOString().slice(0, 10);
-  const todayCount  = printJobs.filter((j) => j.printedAt.startsWith(today)).reduce((sum, j) => sum + j.copies, 0);
-  const expiring    = 0;
-  const lastPrint   = recentJobs[0] ? format(new Date(recentJobs[0].printedAt), "HH:mm") : "—";
+  const todayCount  = printJobs
+    .filter((j) => j.printedAt.startsWith(today))
+    .reduce((sum, j) => sum + j.copies, 0);
+
+  // Conta etichette con scadenza domani (basato su expiryDate nel log)
+  const expiring = printJobs.filter((j) => {
+    if (!j.expiryDate || j.expiryDate === j.preparedDate) return false;
+    return isTomorrow(new Date(j.expiryDate));
+  }).length;
+
+  const lastPrint    = recentJobs[0] ? format(new Date(recentJobs[0].printedAt), "HH:mm") : "—";
   const profileLabel = t(`profile_${settings.profile}` as Parameters<typeof t>[0], lang);
 
   const [toast, setToast] = useState("");
@@ -278,10 +316,7 @@ export default function HomePage() {
 
       <div className="flex-1 overflow-y-auto px-6 min-h-0">
         <div className="grid grid-cols-5 gap-2">
-          {/* Bontás sempre primo, fisso */}
           <BontasQuickCard onPrinted={() => showToast("Bontás printed ✓")} />
-
-          {/* Prodotti pinnati */}
           {pinnedTmpl.map((tmpl) => (
             <QuickCard
               key={tmpl.id}
@@ -289,12 +324,9 @@ export default function HomePage() {
               onPrinted={(name) => showToast(`${name} ✓`)}
             />
           ))}
-
-          {/* Add new */}
           <AddCard onClick={() => navigate("/labels")} />
         </div>
 
-        {/* Recent prints */}
         {recentJobs.length > 0 && (
           <div className="mt-4">
             <p className="section-label mb-2">{t("home_recent", lang)}</p>
@@ -323,7 +355,6 @@ export default function HomePage() {
         </button>
       </div>
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium text-white"
           style={{ background: "#1D9E75" }}>

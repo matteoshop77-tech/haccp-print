@@ -7,10 +7,10 @@ import type { PrintJob } from "@/lib/types";
 import clsx from "clsx";
 
 const typeColors: Record<string, { bg: string; text: string }> = {
-  ervenyesseg:   { bg: "rgba(29,158,117,0.12)",  text: "#5DCAA5" },
-  bontas:        { bg: "rgba(239,159,39,0.12)",   text: "#EF9F27" },
-  termek_leiras: { bg: "rgba(55,138,221,0.12)",   text: "#378ADD" },
-  custom:        { bg: "rgba(127,119,221,0.12)",  text: "#7F77DD" },
+  ervenyesseg:   { bg: "rgba(29,158,117,0.12)",  text: "#0F7A5A" },
+  bontas:        { bg: "rgba(212,133,10,0.12)",   text: "#A86800" },
+  termek_leiras: { bg: "rgba(46,123,196,0.12)",   text: "#1A5FA0" },
+  custom:        { bg: "rgba(107,99,204,0.12)",   text: "#4A44AA" },
 };
 
 const typeLabels: Record<string, string> = {
@@ -26,7 +26,7 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
   return (
     <div className="flex flex-col gap-0.5 px-4 py-3 rounded-lg border border-app-border bg-app-surface">
       <span className="text-xl font-medium text-ink-primary">{value}</span>
-      <span className="text-xs" style={{ color: "rgba(255,255,255,0.28)" }}>{label}</span>
+      <span className="text-xs text-ink-muted">{label}</span>
     </div>
   );
 }
@@ -34,16 +34,15 @@ function StatCard({ value, label }: { value: number | string; label: string }) {
 function JobRow({ job }: { job: PrintJob }) {
   const colors = typeColors[job.labelType] ?? typeColors.custom;
   return (
-    <tr className="border-b hover:bg-white/[0.02] transition-colors"
-      style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-      <td className="py-3 pr-4 text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+    <tr className="border-b border-app-border hover:bg-black/[0.02] transition-colors">
+      <td className="py-3 pr-4 text-xs text-ink-muted">
         {format(new Date(job.printedAt), "dd.MM.yyyy")}
       </td>
-      <td className="py-3 pr-4 text-xs" style={{ color: "rgba(255,255,255,0.45)" }}>
+      <td className="py-3 pr-4 text-xs text-ink-muted">
         {format(new Date(job.printedAt), "HH:mm")}
       </td>
       <td className="py-3 pr-4">
-        <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.92)" }}>
+        <span className="text-sm font-medium text-ink-primary">
           {job.templateName}
         </span>
       </td>
@@ -53,13 +52,15 @@ function JobRow({ job }: { job: PrintJob }) {
           {typeLabels[job.labelType] ?? job.labelType}
         </span>
       </td>
-      <td className="py-3 pr-4 text-sm font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+      <td className="py-3 pr-4 text-sm font-medium text-ink-secondary">
         ×{job.copies}
       </td>
-      <td className="py-3 pr-4 text-xs" style={{ color: "#5DCAA5" }}>
-        {job.expiryDate !== job.preparedDate ? job.expiryDate : "—"}
-      </td>
-      <td className="py-3 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+      <td className="py-3 pr-4 text-xs text-brand">
+  {job.labelType === "bontas" || job.labelType === "custom"
+    ? "—"
+    : job.expiryDate ?? "—"}
+</td>
+      <td className="py-3 text-xs text-ink-muted">
         {job.operatorName ?? "—"}
       </td>
     </tr>
@@ -67,8 +68,8 @@ function JobRow({ job }: { job: PrintJob }) {
 }
 
 export default function LogPage() {
-  const lang   = useStore((s) => s.settings.language);
-  const jobs   = useStore((s) => s.printJobs);
+  const lang = useStore((s) => s.settings.language);
+  const jobs = useStore((s) => s.printJobs);
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -84,9 +85,9 @@ export default function LogPage() {
     .filter(filterJobs)
     .filter((j) => j.templateName.toLowerCase().includes(search.toLowerCase()));
 
-  const todayCount  = jobs.filter((j) => isToday(new Date(j.printedAt))).reduce((s, j) => s + j.copies, 0);
-  const weekCount   = jobs.filter((j) => isThisWeek(new Date(j.printedAt), { weekStartsOn: 1 })).reduce((s, j) => s + j.copies, 0);
-  const totalCount  = jobs.reduce((s, j) => s + j.copies, 0);
+  const todayCount = jobs.filter((j) => isToday(new Date(j.printedAt))).reduce((s, j) => s + j.copies, 0);
+  const weekCount  = jobs.filter((j) => isThisWeek(new Date(j.printedAt), { weekStartsOn: 1 })).reduce((s, j) => s + j.copies, 0);
+  const totalCount = jobs.reduce((s, j) => s + j.copies, 0);
 
   const exportCSV = () => {
     const header = "Date,Time,Product,Type,Copies,Prepared,Expiry,Operator";
@@ -148,8 +149,7 @@ export default function LogPage() {
           ))}
         </div>
         <div className="relative flex-1">
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2"
-            style={{ color: "rgba(255,255,255,0.28)" }} />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
           <input
             type="text"
             value={search}
@@ -164,18 +164,17 @@ export default function LogPage() {
       <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2">
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <FileText size={32} style={{ color: "rgba(255,255,255,0.1)" }} />
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.28)" }}>
+            <FileText size={32} className="text-ink-faint" />
+            <p className="text-sm text-ink-muted">
               {jobs.length === 0 ? "No prints logged yet." : "No results for this filter."}
             </p>
           </div>
         ) : (
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="border-b" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+              <tr className="border-b border-app-border">
                 {["Date", "Time", "Product", "Type", "Copies", "Expiry", "Operator"].map((h) => (
-                  <th key={h} className="text-left py-2 pr-4 font-medium"
-                    style={{ fontSize: "10px", color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  <th key={h} className="text-left py-2 pr-4 font-medium section-label">
                     {h}
                   </th>
                 ))}
