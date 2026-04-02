@@ -111,14 +111,13 @@ mod win_print {
             return Err("GetDeviceCaps ha restituito dimensioni non valide.".to_string());
         }
 
-        let scale_x = page_w_px as f64 / img_w as f64;
-        let scale_y = page_h_px as f64 / img_h as f64;
-        let scale   = scale_x.min(scale_y);
-
-        let dest_w = (img_w as f64 * scale).round() as i32;
+        // Scala per larghezza: l'immagine riempie tutta la larghezza della stampante.
+        // L'altezza si adatta proporzionalmente (fit-to-width).
+        let scale  = page_w_px as f64 / img_w as f64;
+        let dest_w = page_w_px;
         let dest_h = (img_h as f64 * scale).round() as i32;
-        let dest_x = (page_w_px - dest_w) / 2;
-        let dest_y = (page_h_px - dest_h) / 2;
+        let dest_x = 0;
+        let dest_y = 0;
 
         let mut doc_name_buf = to_wide("HACCPrint Label");
         let doc_info = DOCINFOW {

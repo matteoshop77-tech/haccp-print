@@ -1,12 +1,9 @@
 import { addDays, format } from "date-fns";
 import type { LabelTemplate } from "@/lib/types";
 
-// SCALE = fattore moltiplicativo interno del canvas.
-// Il canvas visivo è 732px wide. Per la stampa lo rendiamo 3x più grande
-// così i caratteri escono nitidi a 300 DPI senza cambiare le proporzioni.
 const SCALE = 3;
 
-const LABEL_W_PX  = 732 * SCALE;  // 2196px
+const LABEL_W_PX  = 732 * SCALE;
 const MARGIN_PX   = 20  * SCALE;
 const CONTENT_W   = LABEL_W_PX - MARGIN_PX * 2;
 
@@ -113,12 +110,12 @@ function calcHeight(template: LabelTemplate, lang: "en" | "hu"): number {
   return h;
 }
 
-// Altezza fisica in mm da passare al driver Rust.
-// 732px (senza scale) = 62mm → ogni px base = 62/732 mm
+// Altezza fisica in mm passata al driver.
+// Aggiungiamo 8mm di padding di sicurezza così il driver non taglia mai il contenuto.
 export function calcLabelHeightMM(template: LabelTemplate, lang: "en" | "hu"): number {
   const px = calcHeight(template, lang);
-  // Dividiamo per SCALE per tornare ai px base, poi convertiamo in mm
-  return (px / SCALE) * (62 / 732);
+  const mm = (px / SCALE) * (62 / 732);
+  return mm + 8; // 8mm padding di sicurezza
 }
 
 export function renderLabelToCanvas(
@@ -208,8 +205,7 @@ export function renderLabelToCanvas(
     y += SCALE + GAP_MD;
     ctx.font = fontR(F_ALLERG);
     const algText = `${L.allergens} ${template.allergens}`;
-    const used = drawText(ctx, algText, x, y + F_ALLERG, CONTENT_W, F_ALLERG + GAP_SM, "#555");
-    y += used + GAP_SM;
+    drawText(ctx, algText, x, y + F_ALLERG, CONTENT_W, F_ALLERG + GAP_SM, "#555");
   }
 
   return canvas;
