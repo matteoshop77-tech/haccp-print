@@ -29,9 +29,7 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
-function SettingRow({
-  label, sub, right,
-}: {
+function SettingRow({ label, sub, right }: {
   label: string;
   sub?:  string;
   right: React.ReactNode;
@@ -97,9 +95,7 @@ function DeviceSection() {
         </p>
       </div>
       <div className="flex flex-col gap-2">
-        {loading && (
-          <p className="text-sm text-ink-muted px-1">Scanning printers…</p>
-        )}
+        {loading && <p className="text-sm text-ink-muted px-1">Scanning printers…</p>}
         {!loading && printers.length === 0 && refreshed && (
           <p className="text-sm text-ink-muted px-1">
             No printers found. Make sure the Brother QL-800 driver is installed.
@@ -160,7 +156,6 @@ function DeviceSection() {
 /* ── HACCP Export Section ── */
 function HaccpExportSection({ lang }: { lang: "en" | "hu" }) {
   const jobs = useStore((s) => s.printJobs);
-
   const [from, setFrom] = useState("");
   const [to,   setTo]   = useState("");
 
@@ -206,41 +201,21 @@ function HaccpExportSection({ lang }: { lang: "en" | "hu" }) {
       <div className="flex flex-col gap-3">
         <div className="flex gap-3">
           <div className="flex-1">
-            <label className="section-label mb-1.5 block">
-              {lang === "hu" ? "Kezdő dátum" : "From"}
-            </label>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              className="input text-sm"
-            />
+            <label className="section-label mb-1.5 block">{lang === "hu" ? "Kezdő dátum" : "From"}</label>
+            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="input text-sm" />
           </div>
           <div className="flex-1">
-            <label className="section-label mb-1.5 block">
-              {lang === "hu" ? "Záró dátum" : "To"}
-            </label>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              className="input text-sm"
-            />
+            <label className="section-label mb-1.5 block">{lang === "hu" ? "Záró dátum" : "To"}</label>
+            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="input text-sm" />
           </div>
         </div>
         <div className="px-4 py-3 bg-app-surface border border-app-border rounded-lg">
-          <p className="text-xs text-ink-muted">
-            {lang === "hu" ? "Rekordok száma" : "Records to export"}
-          </p>
+          <p className="text-xs text-ink-muted">{lang === "hu" ? "Rekordok száma" : "Records to export"}</p>
           <p className="text-sm font-medium text-ink-primary mt-0.5">
             {filteredJobs.length} {lang === "hu" ? "nyomtatás" : "print jobs"}
           </p>
         </div>
-        <button
-          onClick={exportCSV}
-          disabled={filteredJobs.length === 0}
-          className="btn-primary self-start disabled:opacity-50"
-        >
+        <button onClick={exportCSV} disabled={filteredJobs.length === 0} className="btn-primary self-start disabled:opacity-50">
           {lang === "hu" ? "CSV exportálása" : "Export CSV"}
         </button>
         {jobs.length === 0 && (
@@ -315,14 +290,8 @@ function BackupSection({ lang }: { lang: "en" | "hu" }) {
       <div className="flex flex-col gap-3">
         <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-ink-primary">
-              {lang === "hu" ? "Adatok exportálása" : "Export backup"}
-            </p>
-            <p className="text-xs text-ink-muted mt-0.5">
-              {lang === "hu"
-                ? "JSON fájl letöltése az összes adattal"
-                : "Download a JSON file with all your data"}
-            </p>
+            <p className="text-sm font-medium text-ink-primary">{lang === "hu" ? "Adatok exportálása" : "Export backup"}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{lang === "hu" ? "JSON fájl letöltése az összes adattal" : "Download a JSON file with all your data"}</p>
           </div>
           <button onClick={exportBackup} className="btn-primary px-4 text-sm">
             {lang === "hu" ? "Letöltés" : "Download"}
@@ -330,14 +299,8 @@ function BackupSection({ lang }: { lang: "en" | "hu" }) {
         </div>
         <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-ink-primary">
-              {lang === "hu" ? "Adatok visszaállítása" : "Restore backup"}
-            </p>
-            <p className="text-xs text-ink-muted mt-0.5">
-              {lang === "hu"
-                ? "Töltsd fel a korábban mentett JSON fájlt"
-                : "Upload a previously exported JSON file"}
-            </p>
+            <p className="text-sm font-medium text-ink-primary">{lang === "hu" ? "Adatok visszaállítása" : "Restore backup"}</p>
+            <p className="text-xs text-ink-muted mt-0.5">{lang === "hu" ? "Töltsd fel a korábban mentett JSON fájlt" : "Upload a previously exported JSON file"}</p>
           </div>
           <label className="btn-ghost px-4 text-sm cursor-pointer">
             {lang === "hu" ? "Feltöltés" : "Upload"}
@@ -345,9 +308,7 @@ function BackupSection({ lang }: { lang: "en" | "hu" }) {
           </label>
         </div>
         {importError && (
-          <p className="text-xs text-coral bg-coral-muted border border-coral/20 rounded-md px-3 py-2">
-            {importError}
-          </p>
+          <p className="text-xs text-coral bg-coral-muted border border-coral/20 rounded-md px-3 py-2">{importError}</p>
         )}
         {importOk && (
           <p className="text-xs text-brand-light bg-brand-muted border border-brand/20 rounded-md px-3 py-2">
@@ -359,11 +320,121 @@ function BackupSection({ lang }: { lang: "en" | "hu" }) {
   );
 }
 
+/* ── License Section ── */
+function LicenseSection({ lang }: { lang: "en" | "hu" }) {
+  const license    = useStore((s) => s.license);
+  const setLicense = useStore((s) => s.setLicense);
+
+  const [key,     setKey]     = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
+
+  const handleActivate = async () => {
+    if (!key.trim()) return;
+    setLoading(true);
+    setError("");
+
+    const { activateLicense } = await import("@/lib/licenseService");
+    const result = await activateLicense(key.trim());
+
+    setLoading(false);
+
+    if (!result.success || !result.license) {
+      setError(result.error ?? "Activation failed.");
+      return;
+    }
+
+    setLicense(result.license);
+  };
+
+  if (license) {
+    return (
+      <div className="flex flex-col gap-5">
+        <h2 className="text-lg font-medium text-ink-primary">
+          {t("settings_license", lang)}
+        </h2>
+        <div className="card px-4 py-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-brand-light">
+              {t(`license_plan_${license.plan}` as Parameters<typeof t>[0], lang)}
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {t("license_renews", lang)} {license.expiresAt.slice(0, 10)} · 1 {t("license_device", lang)}
+            </p>
+          </div>
+          <span className="badge-brand">{t("license_active", lang)}</span>
+        </div>
+        <button
+          onClick={() => setLicense(null as any)}
+          className="btn-ghost self-start text-sm"
+          style={{ color: "#E05C4A" }}
+        >
+          {lang === "hu" ? "Licenc eltávolítása" : "Remove license"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-medium text-ink-primary">
+          {t("settings_license", lang)}
+        </h2>
+        <p className="text-xs text-ink-muted mt-1">
+          {lang === "hu"
+            ? "Add meg a licenckulcsot a vásárlás után kapott emailből."
+            : "Enter the license key you received after purchase."}
+        </p>
+      </div>
+      <div className="card px-4 py-4 flex flex-col gap-3">
+        <p className="text-sm text-ink-muted">{t("settings_no_license", lang)}</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={t("settings_license_key", lang)}
+            className="input flex-1 text-sm font-mono"
+            onKeyDown={(e) => e.key === "Enter" && handleActivate()}
+          />
+          <button
+            onClick={handleActivate}
+            disabled={loading || !key.trim()}
+            className="btn-primary px-4 text-sm disabled:opacity-50"
+          >
+            {loading
+              ? (lang === "hu" ? "Aktiválás…" : "Activating…")
+              : t("settings_activate", lang)}
+          </button>
+        </div>
+        {error && (
+          <p className="text-xs text-coral bg-coral-muted border border-coral/20 rounded-md px-3 py-2">
+            {error}
+          </p>
+        )}
+      </div>
+      <div className="px-4 py-3 bg-app-surface border border-app-border rounded-lg">
+        <p className="text-xs text-ink-muted mb-2">
+          {lang === "hu" ? "Még nincs licenced?" : "Don't have a license yet?"}
+        </p>
+        
+          <a href="https://haccprint.lemonsqueezy.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-brand-light hover:underline"
+        >
+          {lang === "hu" ? "Vásárolj itt →" : "Buy here →"}
+        </a>
+      </div>
+    </div>
+  );
+}
+
 export default function SettingsPage() {
   const lang     = useStore((s) => s.settings.language);
   const settings = useStore((s) => s.settings);
   const update   = useStore((s) => s.updateSettings);
-  const license  = useStore((s) => s.license);
 
   const [active, setActive] = useState<SectionKey>("profile");
 
@@ -372,7 +443,6 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Left nav */}
       <div className="w-48 border-r border-app-border py-5 flex flex-col gap-0.5 flex-shrink-0 overflow-y-auto">
         {groups.map((group) => (
           <div key={group}>
@@ -397,19 +467,13 @@ export default function SettingsPage() {
         ))}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
 
-        {/* ── Industry profile ── */}
         {active === "profile" && (
           <>
             <div>
-              <h2 className="text-lg font-medium text-ink-primary">
-                {t("settings_profile", lang)}
-              </h2>
-              <p className="text-xs text-ink-muted mt-1">
-                {t("settings_profile_sub", lang)}
-              </p>
+              <h2 className="text-lg font-medium text-ink-primary">{t("settings_profile", lang)}</h2>
+              <p className="text-xs text-ink-muted mt-1">{t("settings_profile_sub", lang)}</p>
             </div>
             <div className="grid grid-cols-2 gap-2.5">
               {profiles.map((p) => (
@@ -447,32 +511,23 @@ export default function SettingsPage() {
                 label={t("settings_auto_expiry", lang)}
                 sub={t("settings_auto_expiry_sub", lang)}
                 right={
-                  <Toggle
-                    value={settings.autoCalculateExpiry}
-                    onChange={(v) => update({ autoCalculateExpiry: v })}
-                  />
+                  <Toggle value={settings.autoCalculateExpiry} onChange={(v) => update({ autoCalculateExpiry: v })} />
                 }
               />
               <SettingRow
                 label={t("settings_haccp_log", lang)}
                 sub={t("settings_haccp_log_sub", lang)}
                 right={
-                  <Toggle
-                    value={settings.haccpLogEnabled}
-                    onChange={(v) => update({ haccpLogEnabled: v })}
-                  />
+                  <Toggle value={settings.haccpLogEnabled} onChange={(v) => update({ haccpLogEnabled: v })} />
                 }
               />
             </div>
           </>
         )}
 
-        {/* ── Language ── */}
         {active === "language" && (
           <>
-            <h2 className="text-lg font-medium text-ink-primary">
-              {t("settings_language", lang)}
-            </h2>
+            <h2 className="text-lg font-medium text-ink-primary">{t("settings_language", lang)}</h2>
             <div className="flex gap-2">
               {(["en", "hu"] as const).map((l) => (
                 <button
@@ -492,19 +547,13 @@ export default function SettingsPage() {
           </>
         )}
 
-        {/* ── Appearance ── */}
         {active === "appearance" && (
           <>
-            <h2 className="text-lg font-medium text-ink-primary">
-              {t("settings_appearance", lang)}
-            </h2>
+            <h2 className="text-lg font-medium text-ink-primary">{t("settings_appearance", lang)}</h2>
             <SettingRow
               label={t("settings_dark_mode", lang)}
               right={
-                <Toggle
-                  value={settings.theme === "dark"}
-                  onChange={(v) => update({ theme: v ? "dark" : "light" })}
-                />
+                <Toggle value={settings.theme === "dark"} onChange={(v) => update({ theme: v ? "dark" : "light" })} />
               }
             />
             <SettingRow
@@ -522,50 +571,11 @@ export default function SettingsPage() {
           </>
         )}
 
-        {/* ── Device ── */}
-        {active === "device" && <DeviceSection />}
-
-        {/* ── License ── */}
-        {active === "license" && (
-          <>
-            <h2 className="text-lg font-medium text-ink-primary">
-              {t("settings_license", lang)}
-            </h2>
-            {license ? (
-              <div className="card px-4 py-4 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-brand-light">
-                    {t(`license_plan_${license.plan}` as Parameters<typeof t>[0], lang)}
-                  </p>
-                  <p className="text-xs text-ink-muted mt-0.5">
-                    {t("license_renews", lang)} {license.expiresAt.slice(0, 10)} · 1 {t("license_device", lang)}
-                  </p>
-                </div>
-                <span className="badge-brand">{t("license_active", lang)}</span>
-              </div>
-            ) : (
-              <div className="card px-4 py-4">
-                <p className="text-sm text-ink-muted mb-3">{t("settings_no_license", lang)}</p>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder={t("settings_license_key", lang)}
-                    className="input flex-1 text-sm"
-                  />
-                  <button className="btn-primary px-4 text-sm">{t("settings_activate", lang)}</button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── HACCP Export ── */}
+        {active === "device"       && <DeviceSection />}
+        {active === "license"      && <LicenseSection lang={lang} />}
         {active === "haccp_export" && <HaccpExportSection lang={lang} />}
+        {active === "backup"       && <BackupSection lang={lang} />}
 
-        {/* ── Backup ── */}
-        {active === "backup" && <BackupSection lang={lang} />}
-
-        {/* ── Other sections placeholder ── */}
         {!["profile", "language", "appearance", "device", "license", "haccp_export", "backup"].includes(active) && (
           <div>
             <h2 className="text-lg font-medium text-ink-primary mb-2">

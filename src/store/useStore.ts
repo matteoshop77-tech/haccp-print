@@ -108,7 +108,7 @@ interface AppStore {
   deleteTemplate:  (id: string) => void;
   pinTemplate:     (id: string, pinned: boolean) => void;
   addPrintJob:     (job: Omit<PrintJob, "id" | "printedAt">) => void;
-  setLicense:      (l: License) => void;
+  setLicense:      (l: License | null) => void;
   addCategory:     (name: string) => void;
   removeCategory:  (name: string) => void;
 }
@@ -166,7 +166,7 @@ export const useStore = create<AppStore>()(
         }));
       },
 
-      setLicense: (l) => set({ license: l }),
+      setLicense: (l) => set({ license: l ?? null }),
 
       addCategory: (name) =>
         set((s) => ({
