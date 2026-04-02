@@ -54,8 +54,8 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
 
     const bontasTemplate: LabelTemplate = {
       id:            "bontas-fixed",
-      name:          "Bontás napja",
-      category:      "Bontás",
+      name:          lang === "hu" ? "Bontás napja" : "Opening date",
+      category:      lang === "hu" ? "Bontás" : "Opening date",
       type:          "bontas",
       shelfLifeDays: 0,
       description:   null,
@@ -74,7 +74,7 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
       const todayStr = format(now, "yyyy-MM-dd");
       addPrintJob({
         templateId:   "bontas-fixed",
-        templateName: "Bontás napja",
+        templateName: lang === "hu" ? "Bontás napja" : "Opening date",
         labelType:    "bontas",
         copies,
         preparedDate: todayStr,
@@ -91,10 +91,10 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
       <div className="flex items-start justify-between gap-1">
         <div className="flex items-center gap-1.5 min-w-0">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: "#E8B96A" }} />
-          <p className="text-xs font-semibold text-ink-primary truncate leading-tight">Bontás napja</p>
+          <p className="text-xs font-semibold text-ink-primary truncate leading-tight">{lang === "hu" ? "Bontás napja" : "Opening date"}</p>
         </div>
         <span className="flex-shrink-0 font-medium" style={{ fontSize: "10px", color: "#D4850A" }}>
-          Bontás
+          {lang === "hu" ? "Bontás" : "Opening date"}
         </span>
       </div>
       <p style={{ fontSize: "10px", color: "#C8943A" }}>{today}</p>
