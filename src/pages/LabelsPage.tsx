@@ -36,7 +36,7 @@ function BontasCard({ onPrint }: { onPrint: (copies: number) => void }) {
         </div>
         <div>
           <p className="text-sm font-semibold text-white">Bontás napja</p>
-          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — data odierna automatica</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — today's date, automatic</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -169,7 +169,7 @@ function LabelForm({
                 rows={5}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Scrivi il testo dell'etichetta..."
+                placeholder="Write the label text..."
                 style={{ lineHeight: "1.6" }}
               />
             </div>
@@ -181,7 +181,7 @@ function LabelForm({
                 <label className="section-label mb-1.5 block">
                   Product name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="es. Tiramisù" />
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Tiramisù" />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
@@ -191,7 +191,7 @@ function LabelForm({
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Eltartható (nap) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  Shelf life (days) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
@@ -216,7 +216,7 @@ function LabelForm({
                 <label className="section-label mb-1.5 block">
                   Product name <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="es. Panna cotta" />
+                <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Panna cotta" />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
@@ -226,7 +226,7 @@ function LabelForm({
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
-                  Eltartható (nap) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
+                  Shelf life (days) <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
@@ -246,13 +246,13 @@ function LabelForm({
                 <label className="section-label mb-1.5 block">
                   Description <span className="text-coral normal-case" style={{ fontSize: "10px" }}>*</span>
                 </label>
-                <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ingredienti, note..." />
+                <input className="input" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ingredients, notes..." />
               </div>
               <div>
                 <label className="section-label mb-1.5 block">
                   Allergens <span className="text-ink-secondary normal-case" style={{ fontSize: "10px" }}>(optional)</span>
                 </label>
-                <input className="input" value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="es. Glutén, Tej" />
+                <input className="input" value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="e.g. Gluten, Milk" />
               </div>
             </>
           )}
@@ -293,7 +293,6 @@ function LabelCard({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {/* Pin — evidenziato se attivo */}
           <button
             onClick={() => onPin(template.id, !template.pinned)}
             className={clsx(
@@ -306,7 +305,6 @@ function LabelCard({
           >
             <Pin size={13} />
           </button>
-          {/* Modifica — giallo al hover */}
           <button
             onClick={() => onEdit(template)}
             className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
@@ -315,7 +313,6 @@ function LabelCard({
           >
             <Pencil size={13} />
           </button>
-          {/* Cancella — rosso al hover */}
           <button
             onClick={() => onDelete(template.id)}
             className="flex items-center justify-center w-7 h-7 rounded-md transition-colors

@@ -30,7 +30,7 @@ export default function CategoriesPage() {
 
       <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-6">
 
-        {/* Aggiungi nuova */}
+        {/* Add new */}
         <div>
           <p className="section-label mb-3">Add category</p>
           <div className="flex gap-2">
@@ -39,7 +39,7 @@ export default function CategoriesPage() {
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              placeholder="es. Antipasto..."
+              placeholder="e.g. Appetizer..."
             />
             <button
               onClick={handleAdd}
@@ -52,7 +52,7 @@ export default function CategoriesPage() {
           </div>
         </div>
 
-        {/* Lista categorie */}
+        {/* Category list */}
         <div>
           <p className="section-label mb-3">
             {categories.length} {categories.length === 1 ? "category" : "categories"}

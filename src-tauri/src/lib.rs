@@ -61,7 +61,7 @@ mod win_print {
         printer_name: &str,
         copies: u32,
         label_w_mm: f64,
-        label_h_mm: f64,
+        _label_h_mm: f64,
     ) -> Result<(), String> {
         let img = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png)
             .map_err(|e| format!("PNG decode error: {e}"))?
@@ -74,9 +74,6 @@ mod win_print {
             bgra.push(px[2]); bgra.push(px[1]); bgra.push(px[0]); bgra.push(px[3]);
         }
 
-        // Calcola le dimensioni fisiche reali della pagina in base all'immagine.
-        // L'altezza fisica = larghezza fisica × (altezza immagine / larghezza immagine)
-        // Questo garantisce che la pagina abbia esattamente le proporzioni del canvas.
         let aspect = img_h as f64 / img_w as f64;
         let real_h_mm = label_w_mm * aspect;
 
@@ -106,7 +103,7 @@ mod win_print {
             )
         };
         if dc.is_null() {
-            return Err(format!("Impossibile creare DC per '{}'. Driver installato?", printer_name));
+            return Err(format!("Cannot create DC for '{}'. Is the driver installed?", printer_name));
         }
 
         let page_w_px = unsafe { GetDeviceCaps(dc, HORZRES) };
@@ -114,12 +111,9 @@ mod win_print {
 
         if page_w_px <= 0 || page_h_px <= 0 {
             unsafe { DeleteDC(dc); }
-            return Err("GetDeviceCaps ha restituito dimensioni non valide.".to_string());
+            return Err("GetDeviceCaps returned invalid dimensions.".to_string());
         }
 
-        // Scala per larghezza: l'immagine riempie tutta la larghezza.
-        // L'altezza segue proporzionalmente — non viene mai tagliata
-        // perché la pagina è stata dimensionata sulle proporzioni reali dell'immagine.
         let dest_w = page_w_px;
         let dest_h = page_h_px;
 
@@ -152,7 +146,7 @@ mod win_print {
         let job = unsafe { StartDocW(dc, &doc_info) };
         if job <= 0 {
             unsafe { DeleteDC(dc); }
-            return Err("StartDoc fallito — stampante pronta e online?".to_string());
+            return Err("StartDoc failed — is the printer ready and online?".to_string());
         }
 
         for _ in 0..copies {
@@ -218,7 +212,7 @@ fn print_label_image(
     #[cfg(not(target_os = "windows"))]
     {
         let _ = (png_base64, copies, printer_name, label_w_mm, label_h_mm);
-        Err("Stampa disponibile solo su Windows.".to_string())
+        Err("Printing is only available on Windows.".to_string())
     }
 }
 
