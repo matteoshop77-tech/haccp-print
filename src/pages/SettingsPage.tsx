@@ -30,17 +30,14 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 function SettingRow({
-  label,
-  sub,
-  right,
+  label, sub, right,
 }: {
   label: string;
   sub?:  string;
   right: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between px-4 py-3 bg-app-surface
-                    border border-app-border rounded-lg">
+    <div className="flex items-center justify-between px-4 py-3 bg-app-surface border border-app-border rounded-lg">
       <div>
         <p className="text-sm text-ink-primary">{label}</p>
         {sub && <p className="text-xs text-ink-muted mt-0.5">{sub}</p>}
@@ -66,8 +63,8 @@ type SectionKey = typeof sections[number]["key"];
 
 /* ── Device / Printer section ── */
 function DeviceSection() {
-  const settings   = useStore((s) => s.settings);
-  const update     = useStore((s) => s.updateSettings);
+  const settings = useStore((s) => s.settings);
+  const update   = useStore((s) => s.updateSettings);
 
   const [printers,  setPrinters]  = useState<string[]>([]);
   const [loading,   setLoading]   = useState(false);
@@ -99,19 +96,15 @@ function DeviceSection() {
           Select the printer HACCPrint will use for label printing.
         </p>
       </div>
-
-      {/* Printer list */}
       <div className="flex flex-col gap-2">
         {loading && (
           <p className="text-sm text-ink-muted px-1">Scanning printers…</p>
         )}
-
         {!loading && printers.length === 0 && refreshed && (
           <p className="text-sm text-ink-muted px-1">
             No printers found. Make sure the Brother QL-800 driver is installed.
           </p>
         )}
-
         {printers.map((name) => {
           const isBrother  = name.toLowerCase().includes("brother");
           const isSelected = selected === name;
@@ -131,8 +124,8 @@ function DeviceSection() {
                 <div>
                   <p className="text-sm font-medium text-ink-primary">{name}</p>
                   {isBrother && name.toLowerCase().includes("ql-800") && (
-  <p className="text-xs text-brand-light mt-0.5">Recommended</p>
-)}
+                    <p className="text-xs text-brand-light mt-0.5">Recommended</p>
+                  )}
                 </div>
               </div>
               {isSelected && (
@@ -146,29 +139,222 @@ function DeviceSection() {
           );
         })}
       </div>
-
-      {/* Refresh button */}
-      <button
-        onClick={loadPrinters}
-        disabled={loading}
-        className="btn-ghost self-start text-sm"
-      >
+      <button onClick={loadPrinters} disabled={loading} className="btn-ghost self-start text-sm">
         {loading ? "Scanning…" : "↻ Refresh list"}
       </button>
-
-      {/* Current selection info */}
       {selected && (
         <div className="px-4 py-3 bg-app-surface border border-app-border rounded-lg">
           <p className="text-xs text-ink-muted">Active printer</p>
           <p className="text-sm font-medium text-ink-primary mt-0.5">{selected}</p>
         </div>
       )}
-
       {!selected && refreshed && printers.length > 0 && (
         <p className="text-xs text-ink-muted px-1">
           No printer selected — HACCPrint will auto-detect a Brother printer.
         </p>
       )}
+    </div>
+  );
+}
+
+/* ── HACCP Export Section ── */
+function HaccpExportSection({ lang }: { lang: "en" | "hu" }) {
+  const jobs = useStore((s) => s.printJobs);
+
+  const [from, setFrom] = useState("");
+  const [to,   setTo]   = useState("");
+
+  const filteredJobs = jobs.filter((j) => {
+    const date = j.printedAt.slice(0, 10);
+    if (from && date < from) return false;
+    if (to   && date > to)   return false;
+    return true;
+  });
+
+  const exportCSV = () => {
+    const header = "Date,Time,Product,Type,Copies,Prepared,Expiry,Operator";
+    const rows = filteredJobs.map((j) => [
+      j.printedAt.slice(0, 10),
+      j.printedAt.slice(11, 16),
+      `"${j.templateName}"`,
+      j.labelType,
+      j.copies,
+      j.preparedDate,
+      j.expiryDate ?? "",
+      j.operatorName ?? "",
+    ].join(","));
+    const csv  = [header, ...rows].join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `haccp-export-${from || "all"}-${to || "all"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-medium text-ink-primary">{t("settings_haccp_export", lang)}</h2>
+        <p className="text-xs text-ink-muted mt-1">
+          {lang === "hu"
+            ? "Exportáld a nyomtatási naplót CSV formátumban HACCP ellenőrzéshez."
+            : "Export your print log as CSV for HACCP compliance inspection."}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="flex gap-3">
+          <div className="flex-1">
+            <label className="section-label mb-1.5 block">
+              {lang === "hu" ? "Kezdő dátum" : "From"}
+            </label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="input text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="section-label mb-1.5 block">
+              {lang === "hu" ? "Záró dátum" : "To"}
+            </label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="input text-sm"
+            />
+          </div>
+        </div>
+        <div className="px-4 py-3 bg-app-surface border border-app-border rounded-lg">
+          <p className="text-xs text-ink-muted">
+            {lang === "hu" ? "Rekordok száma" : "Records to export"}
+          </p>
+          <p className="text-sm font-medium text-ink-primary mt-0.5">
+            {filteredJobs.length} {lang === "hu" ? "nyomtatás" : "print jobs"}
+          </p>
+        </div>
+        <button
+          onClick={exportCSV}
+          disabled={filteredJobs.length === 0}
+          className="btn-primary self-start disabled:opacity-50"
+        >
+          {lang === "hu" ? "CSV exportálása" : "Export CSV"}
+        </button>
+        {jobs.length === 0 && (
+          <p className="text-xs text-ink-muted">
+            {lang === "hu" ? "Még nincs rögzített nyomtatás." : "No print jobs logged yet."}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Backup Section ── */
+function BackupSection({ lang }: { lang: "en" | "hu" }) {
+  const store = useStore();
+  const [importError, setImportError] = useState("");
+  const [importOk,    setImportOk]    = useState(false);
+
+  const exportBackup = () => {
+    const data = {
+      version:    1,
+      exportedAt: new Date().toISOString(),
+      templates:  store.templates,
+      categories: store.categories,
+      settings:   store.settings,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `haccprint-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImportError("");
+    setImportOk(false);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const data = JSON.parse(ev.target?.result as string);
+        if (!data.templates || !data.categories || !data.settings) {
+          setImportError(lang === "hu" ? "Érvénytelen backup fájl." : "Invalid backup file.");
+          return;
+        }
+        data.templates.forEach((tmpl: any) => store.addTemplate(tmpl));
+        data.categories.forEach((cat: string) => store.addCategory(cat));
+        store.updateSettings(data.settings);
+        setImportOk(true);
+        setTimeout(() => setImportOk(false), 3000);
+      } catch {
+        setImportError(lang === "hu" ? "Nem sikerült beolvasni a fájlt." : "Could not read the file.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-medium text-ink-primary">{t("settings_backup", lang)}</h2>
+        <p className="text-xs text-ink-muted mt-1">
+          {lang === "hu"
+            ? "Mentsd el vagy töltsd vissza az összes adatot (címkék, kategóriák, beállítások)."
+            : "Save or restore all your data (labels, categories, settings)."}
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-ink-primary">
+              {lang === "hu" ? "Adatok exportálása" : "Export backup"}
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {lang === "hu"
+                ? "JSON fájl letöltése az összes adattal"
+                : "Download a JSON file with all your data"}
+            </p>
+          </div>
+          <button onClick={exportBackup} className="btn-primary px-4 text-sm">
+            {lang === "hu" ? "Letöltés" : "Download"}
+          </button>
+        </div>
+        <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-ink-primary">
+              {lang === "hu" ? "Adatok visszaállítása" : "Restore backup"}
+            </p>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {lang === "hu"
+                ? "Töltsd fel a korábban mentett JSON fájlt"
+                : "Upload a previously exported JSON file"}
+            </p>
+          </div>
+          <label className="btn-ghost px-4 text-sm cursor-pointer">
+            {lang === "hu" ? "Feltöltés" : "Upload"}
+            <input type="file" accept=".json" onChange={importBackup} className="hidden" />
+          </label>
+        </div>
+        {importError && (
+          <p className="text-xs text-coral bg-coral-muted border border-coral/20 rounded-md px-3 py-2">
+            {importError}
+          </p>
+        )}
+        {importOk && (
+          <p className="text-xs text-brand-light bg-brand-muted border border-brand/20 rounded-md px-3 py-2">
+            {lang === "hu" ? "Visszaállítás sikeres ✓" : "Restore successful ✓"}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -359,27 +545,33 @@ export default function SettingsPage() {
               </div>
             ) : (
               <div className="card px-4 py-4">
-                <p className="text-sm text-ink-muted mb-3">No license activated.</p>
+                <p className="text-sm text-ink-muted mb-3">{t("settings_no_license", lang)}</p>
                 <div className="flex gap-2">
                   <input
                     type="text"
-                    placeholder="Enter license key…"
+                    placeholder={t("settings_license_key", lang)}
                     className="input flex-1 text-sm"
                   />
-                  <button className="btn-primary px-4 text-sm">Activate</button>
+                  <button className="btn-primary px-4 text-sm">{t("settings_activate", lang)}</button>
                 </div>
               </div>
             )}
           </>
         )}
 
+        {/* ── HACCP Export ── */}
+        {active === "haccp_export" && <HaccpExportSection lang={lang} />}
+
+        {/* ── Backup ── */}
+        {active === "backup" && <BackupSection lang={lang} />}
+
         {/* ── Other sections placeholder ── */}
-        {!["profile", "language", "appearance", "device", "license"].includes(active) && (
+        {!["profile", "language", "appearance", "device", "license", "haccp_export", "backup"].includes(active) && (
           <div>
             <h2 className="text-lg font-medium text-ink-primary mb-2">
               {t(`settings_${active}` as Parameters<typeof t>[0], lang)}
             </h2>
-            <p className="text-sm text-ink-muted">Coming soon.</p>
+            <p className="text-sm text-ink-muted">{t("settings_coming_soon", lang)}</p>
           </div>
         )}
       </div>
