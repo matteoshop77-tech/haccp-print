@@ -25,40 +25,42 @@ function BontasCard({ onPrint }: { onPrint: (copies: number) => void }) {
   const today = format(new Date(), "dd.MM.yyyy");
   const [copies, setCopies] = useState(1);
   return (
-    <div className="col-span-2 flex items-center justify-between px-4 py-3 rounded-lg border mb-1"
-      style={{ background: "rgba(239,159,39,0.07)", borderColor: "rgba(239,159,39,0.25)" }}>
+    <div
+      className="col-span-2 flex items-center justify-between px-4 py-3 rounded-lg mb-1"
+      style={{ background: "#D4850A", borderColor: "#B8720A" }}
+    >
       <div className="flex items-center gap-3">
         <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-          style={{ background: "rgba(239,159,39,0.15)" }}>
-          <div className="w-2.5 h-2.5 rounded-full bg-amber" />
+          style={{ background: "rgba(255,255,255,0.20)" }}>
+          <div className="w-2.5 h-2.5 rounded-full bg-white" />
         </div>
         <div>
-          <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.92)" }}>Bontás napja</p>
-          <p className="text-xs" style={{ color: "rgba(239,159,39,0.8)" }}>{today} — data odierna automatica</p>
+          <p className="text-sm font-semibold text-white">Bontás napja</p>
+          <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>{today} — data odierna automatica</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
         <button
           onClick={() => setCopies((c) => Math.max(1, c - 1))}
-          className="w-6 h-6 rounded-md flex items-center justify-center transition-colors"
-          style={{ background: "rgba(239,159,39,0.1)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.25)" }}
+          className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-white"
+          style={{ background: "rgba(255,255,255,0.20)" }}
         >
           <Minus size={12} />
         </button>
-        <span className="text-sm font-medium w-5 text-center tabular-nums" style={{ color: "#EF9F27" }}>
+        <span className="text-sm font-semibold w-5 text-center tabular-nums text-white">
           {copies}
         </span>
         <button
           onClick={() => setCopies((c) => Math.min(200, c + 1))}
-          className="w-6 h-6 rounded-md flex items-center justify-center transition-colors"
-          style={{ background: "rgba(239,159,39,0.1)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.25)" }}
+          className="w-7 h-7 rounded-md flex items-center justify-center transition-colors text-white"
+          style={{ background: "rgba(255,255,255,0.20)" }}
         >
           <Plus size={12} />
         </button>
         <button
           onClick={() => onPrint(copies)}
-          className="flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ml-1"
-          style={{ background: "rgba(239,159,39,0.15)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.3)" }}
+          className="flex items-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-colors ml-1 text-amber"
+          style={{ background: "white" }}
         >
           <Printer size={12} />
           Print
@@ -74,25 +76,12 @@ function CategorySelect({ value, onChange }: { value: string; onChange: (v: stri
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      style={{
-        width: "100%",
-        background: "#161820",
-        border: "0.5px solid #ffffff12",
-        borderRadius: "10px",
-        padding: "8px 12px",
-        fontSize: "13px",
-        color: value ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.28)",
-        outline: "none",
-        appearance: "auto",
-      }}
+      className="input"
+      style={{ appearance: "auto" }}
     >
-      <option value="" style={{ color: "rgba(255,255,255,0.28)", background: "#161820" }}>
-        Select category...
-      </option>
+      <option value="">Select category...</option>
       {categories.map((c) => (
-        <option key={c} value={c} style={{ background: "#161820", color: "rgba(255,255,255,0.92)" }}>
-          {c}
-        </option>
+        <option key={c} value={c}>{c}</option>
       ))}
     </select>
   );
@@ -140,8 +129,8 @@ function LabelForm({
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(0,0,0,0.6)" }}>
-      <div className="bg-app-bg border border-app-border rounded-xl w-full max-w-md mx-4 overflow-hidden">
+      style={{ background: "rgba(0,0,0,0.35)" }}>
+      <div className="bg-app-surface border border-app-border rounded-xl w-full max-w-md mx-4 overflow-hidden shadow-xl">
         <div className="flex items-center justify-between p-5 border-b border-app-border">
           <h2 className="text-lg font-medium text-ink-primary">
             {initial ? "Edit label" : "New label"}
@@ -150,7 +139,6 @@ function LabelForm({
         </div>
 
         <div className="p-5 flex flex-col gap-4">
-
           <div>
             <label className="section-label mb-2 block">Label type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -162,7 +150,7 @@ function LabelForm({
                     "py-2.5 px-3 rounded-lg border text-sm transition-colors text-center",
                     type === tp.value
                       ? "border-brand bg-brand-muted text-brand-light"
-                      : "border-app-border bg-app-surface text-ink-secondary hover:border-app-border-hover"
+                      : "border-app-border bg-app-elevated text-ink-secondary hover:border-app-border-hover"
                   )}
                 >
                   {tp.label}
@@ -207,14 +195,14 @@ function LabelForm({
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
+                    className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
                     {shelfLife} {shelfLife === 1 ? "day" : "days"}
                   </span>
                   <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
+                    className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -242,14 +230,14 @@ function LabelForm({
                 </label>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setShelfLife((d) => Math.max(1, d - 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
+                    className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Minus size={14} />
                   </button>
                   <span className="text-base font-medium text-ink-primary w-12 text-center tabular-nums">
                     {shelfLife} {shelfLife === 1 ? "day" : "days"}
                   </span>
                   <button onClick={() => setShelfLife((d) => Math.min(365, d + 1))}
-                    className="w-7 h-7 rounded-lg bg-app-surface border border-app-border flex items-center justify-center text-brand-light hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
+                    className="w-7 h-7 rounded-lg bg-app-elevated border border-app-border flex items-center justify-center text-brand hover:border-brand hover:bg-brand-muted transition-colors flex-shrink-0">
                     <Plus size={14} />
                   </button>
                 </div>
@@ -268,7 +256,6 @@ function LabelForm({
               </div>
             </>
           )}
-
         </div>
 
         <div className="flex gap-2 px-5 pb-5 pt-3 border-t border-app-border">
@@ -311,8 +298,8 @@ function LabelCard({
             className={clsx(
               "flex items-center justify-center w-7 h-7 rounded-md transition-colors",
               template.pinned
-                ? "text-brand-light bg-brand-muted"
-                : "text-ink-muted hover:text-ink-secondary hover:bg-white/5 opacity-0 group-hover:opacity-100"
+                ? "text-brand bg-brand-muted"
+                : "text-ink-muted hover:text-ink-secondary hover:bg-black/5 opacity-0 group-hover:opacity-100"
             )}
           >
             <Pin size={13} />
@@ -320,7 +307,7 @@ function LabelCard({
           <button
             onClick={() => onEdit(template)}
             className="flex items-center justify-center w-7 h-7 rounded-md text-ink-muted
-                       hover:text-ink-secondary hover:bg-white/5 transition-colors opacity-0 group-hover:opacity-100"
+                       hover:text-ink-secondary hover:bg-black/5 transition-colors opacity-0 group-hover:opacity-100"
           >
             <Pencil size={13} />
           </button>
@@ -339,7 +326,7 @@ function LabelCard({
       )}
 
       <div className="flex items-center justify-between pt-1">
-        <span style={{ color: "rgba(255,255,255,0.2)", fontSize: "10px" }}>
+        <span className="text-ink-muted" style={{ fontSize: "10px" }}>
           {t(`type_${template.type}` as Parameters<typeof t>[0], lang)} · printed {template.printCount}×
         </span>
         <button onClick={() => onPrint(template)} className="btn-primary py-1.5 px-3 text-xs rounded-md">
@@ -411,7 +398,7 @@ export default function LabelsPage() {
 
       <div className="px-6 py-3 flex-shrink-0">
         <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.28)" }} />
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
           <input
             type="text"
             value={search}
@@ -426,7 +413,7 @@ export default function LabelsPage() {
         <div className="grid grid-cols-2 gap-3">
           <BontasCard onPrint={handleBontasPrint} />
           {filtered.length === 0 ? (
-            <div className="col-span-2 text-sm text-center py-8" style={{ color: "rgba(255,255,255,0.28)" }}>
+            <div className="col-span-2 text-sm text-center py-8 text-ink-muted">
               No labels found.
             </div>
           ) : (
@@ -445,8 +432,8 @@ export default function LabelsPage() {
         </div>
 
         {bontasPrinted && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ background: "rgba(239,159,39,0.15)", color: "#EF9F27", border: "0.5px solid rgba(239,159,39,0.3)" }}>
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+            style={{ background: "#D4850A" }}>
             Bontás printed ✓
           </div>
         )}

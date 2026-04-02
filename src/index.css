@@ -10,8 +10,8 @@
     height: 100%;
     margin: 0;
     padding: 0;
-    background: #0f1117;
-    color: rgba(255,255,255,0.92);
+    background: #F4F6F3;
+    color: #1A1D1B;
     font-family: 'DM Sans', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     user-select: none;
@@ -19,8 +19,8 @@
 
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+  ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
 }
 
 @layer components {
@@ -59,39 +59,34 @@
     @apply btn bg-brand text-white hover:bg-brand-dark active:scale-[0.98];
   }
   .btn-ghost {
-    @apply btn bg-transparent border border-app-border
-           hover:border-app-border-hover active:scale-[0.98];
-    color: rgba(255,255,255,0.55);
+    @apply btn bg-transparent border border-app-border text-ink-secondary
+           hover:border-app-border-hover hover:text-ink-primary active:scale-[0.98];
   }
-  .btn-ghost:hover { color: rgba(255,255,255,0.92); }
   .btn-danger {
-    @apply btn bg-coral-muted border border-coral text-coral hover:bg-coral active:scale-[0.98];
+    @apply btn bg-coral-muted border border-coral text-coral hover:bg-coral hover:text-white active:scale-[0.98];
   }
 
   .input {
     @apply w-full bg-app-surface border border-app-border rounded-md
-           px-3 py-2 text-sm
+           px-3 py-2 text-sm text-ink-primary
            focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand
            transition-colors duration-150;
-    color: rgba(255,255,255,0.92);
   }
-  .input::placeholder { color: rgba(255,255,255,0.28); }
+  .input::placeholder { color: #C0C8C4; }
 
   .nav-item {
     @apply flex items-center justify-center w-10 h-10 rounded-md
-           cursor-pointer transition-colors duration-150;
-    color: rgba(255,255,255,0.28);
+           cursor-pointer transition-colors duration-150 text-ink-muted;
   }
-  .nav-item:hover { color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.05); }
+  .nav-item:hover { color: #4A5250; background: rgba(0,0,0,0.05); }
 
   .nav-item-active {
     @apply flex items-center justify-center w-10 h-10 rounded-md cursor-pointer
-           bg-brand-muted text-brand-light;
+           bg-brand-muted text-brand;
   }
 
   .section-label {
-    @apply text-xs font-medium uppercase tracking-widest;
-    color: rgba(255,255,255,0.28);
+    @apply text-xs font-medium uppercase tracking-widest text-ink-muted;
     font-size: 10px;
   }
 

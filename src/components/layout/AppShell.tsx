@@ -9,11 +9,11 @@ function LogoMark() {
   return (
     <div className="flex items-center justify-center mb-4 flex-shrink-0">
       <svg width="36" height="36" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-        <rect width="64" height="64" rx="14" fill="#111714"/>
+        <rect width="64" height="64" rx="14" fill="#D6EDE4"/>
         <rect x="10" y="10" width="44" height="44" rx="10" fill="#1D9E75"/>
         <rect x="18" y="19" width="28" height="5" rx="2.5" fill="#F0FAF6"/>
-        <rect x="18" y="29" width="19" height="5" rx="2.5" fill="rgba(240,250,246,0.45)"/>
-        <rect x="18" y="39" width="23" height="5" rx="2.5" fill="rgba(240,250,246,0.45)"/>
+        <rect x="18" y="29" width="19" height="5" rx="2.5" fill="rgba(240,250,246,0.55)"/>
+        <rect x="18" y="39" width="23" height="5" rx="2.5" fill="rgba(240,250,246,0.55)"/>
       </svg>
     </div>
   );
@@ -24,20 +24,19 @@ function TitleBar() {
     <div
       data-tauri-drag-region
       className="flex items-center justify-between px-4 h-9 flex-shrink-0 border-b border-app-border select-none"
-      style={{ background: "var(--color-app-sidebar)" }}
+      style={{ background: "var(--color-app-sidebar, #ECEEE9)" }}
     >
       <div data-tauri-drag-region className="flex items-center gap-2.5">
         <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-          <rect width="64" height="64" rx="14" fill="#111714"/>
+          <rect width="64" height="64" rx="14" fill="#D6EDE4"/>
           <rect x="10" y="10" width="44" height="44" rx="10" fill="#1D9E75"/>
           <rect x="18" y="19" width="28" height="5" rx="2.5" fill="#F0FAF6"/>
-          <rect x="18" y="29" width="19" height="5" rx="2.5" fill="rgba(240,250,246,0.45)"/>
-          <rect x="18" y="39" width="23" height="5" rx="2.5" fill="rgba(240,250,246,0.45)"/>
+          <rect x="18" y="29" width="19" height="5" rx="2.5" fill="rgba(240,250,246,0.55)"/>
+          <rect x="18" y="39" width="23" height="5" rx="2.5" fill="rgba(240,250,246,0.55)"/>
         </svg>
         <span
           data-tauri-drag-region
-          className="text-xs font-semibold"
-          style={{ color: "rgba(255,255,255,0.5)" }}
+          className="text-xs font-semibold text-ink-secondary"
         >
           HACC<span style={{ color: "#1D9E75" }}>Print</span>
         </span>
@@ -45,28 +44,25 @@ function TitleBar() {
       <div className="flex items-center gap-1">
         <button
           onClick={() => getCurrentWindow().minimize()}
-          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-          style={{ color: "rgba(255,255,255,0.4)" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
+          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-ink-muted"
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,0,0,0.07)")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         >
           <Minus size={13} />
         </button>
         <button
           onClick={() => getCurrentWindow().toggleMaximize()}
-          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-          style={{ color: "rgba(255,255,255,0.4)" }}
-          onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.07)")}
+          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-ink-muted"
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(0,0,0,0.07)")}
           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
         >
           <Square size={11} />
         </button>
         <button
           onClick={() => getCurrentWindow().close()}
-          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors"
-          style={{ color: "rgba(255,255,255,0.4)" }}
-          onMouseEnter={e => { e.currentTarget.style.background = "rgba(220,50,50,0.7)"; e.currentTarget.style.color = "white"; }}
-          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; }}
+          className="w-7 h-7 flex items-center justify-center rounded-md transition-colors text-ink-muted"
+          onMouseEnter={e => { e.currentTarget.style.background = "rgba(220,50,50,0.15)"; e.currentTarget.style.color = "#C04A28"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = ""; }}
         >
           <X size={13} />
         </button>
