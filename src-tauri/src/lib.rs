@@ -1,3 +1,4 @@
+// ─── HACCPrint · lib.rs ────────────────────────────────────────────────────
 #[cfg(target_os = "windows")]
 mod win_print {
     use std::ffi::OsStr;
@@ -55,17 +56,36 @@ mod win_print {
         names
     }
 
-    pub fn print_png(png_bytes: &[u8], printer_name: &str, copies: u32) -> Result<(), String> {
+    pub fn print_png(
+        png_bytes: &[u8],
+        printer_name: &str,
+        copies: u32,
+        label_w_mm: f64,
+        label_h_mm: f64,
+    ) -> Result<(), String> {
         let img = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png)
             .map_err(|e| format!("PNG decode error: {e}"))?
             .to_rgba8();
         let img_w = img.width();
         let img_h = img.height();
 
-        // RGBA → BGRA
         let mut bgra: Vec<u8> = Vec::with_capacity((img_w * img_h * 4) as usize);
         for px in img.pixels() {
             bgra.push(px[2]); bgra.push(px[1]); bgra.push(px[0]); bgra.push(px[3]);
+        }
+
+        let paper_w = (label_w_mm * 10.0).round() as i16;
+        let paper_h = (label_h_mm * 10.0).round() as i16;
+
+        let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
+        devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
+        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
+
+        unsafe {
+            devmode.u1.s1_mut().dmPaperSize   = 256;
+            devmode.u1.s1_mut().dmPaperWidth  = paper_w;
+            devmode.u1.s1_mut().dmPaperLength = paper_h;
+            devmode.u1.s1_mut().dmOrientation = DMORIENT_PORTRAIT as i16;
         }
 
         let driver_wide  = to_wide("winspool");
@@ -76,17 +96,29 @@ mod win_print {
                 driver_wide.as_ptr(),
                 printer_wide.as_ptr(),
                 std::ptr::null(),
-                std::ptr::null(),
+                &devmode as *const DEVMODEW,
             )
         };
         if dc.is_null() {
             return Err(format!("Impossibile creare DC per '{}'. Driver installato?", printer_name));
         }
 
-        let dpi_x  = unsafe { GetDeviceCaps(dc, LOGPIXELSX) } as f64;
-        let scale  = dpi_x / 96.0;
+        let page_w_px = unsafe { GetDeviceCaps(dc, HORZRES) };
+        let page_h_px = unsafe { GetDeviceCaps(dc, VERTRES) };
+
+        if page_w_px <= 0 || page_h_px <= 0 {
+            unsafe { DeleteDC(dc); }
+            return Err("GetDeviceCaps ha restituito dimensioni non valide.".to_string());
+        }
+
+        let scale_x = page_w_px as f64 / img_w as f64;
+        let scale_y = page_h_px as f64 / img_h as f64;
+        let scale   = scale_x.min(scale_y);
+
         let dest_w = (img_w as f64 * scale).round() as i32;
         let dest_h = (img_h as f64 * scale).round() as i32;
+        let dest_x = (page_w_px - dest_w) / 2;
+        let dest_y = (page_h_px - dest_h) / 2;
 
         let mut doc_name_buf = to_wide("HACCPrint Label");
         let doc_info = DOCINFOW {
@@ -96,12 +128,6 @@ mod win_print {
             lpszDatatype: std::ptr::null_mut(),
             fwType:       0,
         };
-
-        let job = unsafe { StartDocW(dc, &doc_info) };
-        if job <= 0 {
-            unsafe { DeleteDC(dc); }
-            return Err("StartDoc fallito — stampante pronta?".to_string());
-        }
 
         let bmi = BITMAPINFO {
             bmiHeader: BITMAPINFOHEADER {
@@ -120,12 +146,18 @@ mod win_print {
             bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }],
         };
 
+        let job = unsafe { StartDocW(dc, &doc_info) };
+        if job <= 0 {
+            unsafe { DeleteDC(dc); }
+            return Err("StartDoc fallito — stampante pronta e online?".to_string());
+        }
+
         for _ in 0..copies {
             unsafe {
                 StartPage(dc);
                 StretchDIBits(
                     dc,
-                    0, 0, dest_w, dest_h,
+                    dest_x, dest_y, dest_w, dest_h,
                     0, 0, img_w as i32, img_h as i32,
                     bgra.as_ptr() as *const _,
                     &bmi,
@@ -136,10 +168,7 @@ mod win_print {
             }
         }
 
-        unsafe {
-            EndDoc(dc);
-            DeleteDC(dc);
-        }
+        unsafe { EndDoc(dc); DeleteDC(dc); }
         Ok(())
     }
 }
@@ -157,6 +186,8 @@ fn print_label_image(
     png_base64: String,
     copies: u32,
     printer_name: Option<String>,
+    label_w_mm: Option<f64>,
+    label_h_mm: Option<f64>,
 ) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
@@ -175,11 +206,17 @@ fn print_label_image(
             }
         };
 
-        win_print::print_png(&png_bytes, &printer, copies.max(1))?;
+        let w_mm = label_w_mm.unwrap_or(62.0);
+        let h_mm = label_h_mm.unwrap_or(100.0);
+
+        win_print::print_png(&png_bytes, &printer, copies.max(1), w_mm, h_mm)?;
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]
-    { let _ = (png_base64, copies, printer_name); Err("Solo Windows".to_string()) }
+    {
+        let _ = (png_base64, copies, printer_name, label_w_mm, label_h_mm);
+        Err("Stampa disponibile solo su Windows.".to_string())
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -1,19 +1,24 @@
 import { addDays, format } from "date-fns";
 import type { LabelTemplate } from "@/lib/types";
 
-const PRINT_WIDTH_PX = 732;
-const MARGIN_PX      = 20;
-const CONTENT_WIDTH  = PRINT_WIDTH_PX - MARGIN_PX * 2;
+// SCALE = fattore moltiplicativo interno del canvas.
+// Il canvas visivo è 732px wide. Per la stampa lo rendiamo 3x più grande
+// così i caratteri escono nitidi a 300 DPI senza cambiare le proporzioni.
+const SCALE = 3;
 
-const F_NAME    = 38;
-const F_DESC    = 26;
-const F_LABEL   = 22;
-const F_VALUE   = 28;
-const F_ALLERG  = 24;
+const LABEL_W_PX  = 732 * SCALE;  // 2196px
+const MARGIN_PX   = 20  * SCALE;
+const CONTENT_W   = LABEL_W_PX - MARGIN_PX * 2;
 
-const GAP_SM    = 8;
-const GAP_MD    = 10;
-const GAP_TOP   = 6;
+const F_NAME   = 38 * SCALE;
+const F_DESC   = 26 * SCALE;
+const F_LABEL  = 22 * SCALE;
+const F_VALUE  = 28 * SCALE;
+const F_ALLERG = 24 * SCALE;
+
+const GAP_SM  = 8  * SCALE;
+const GAP_MD  = 10 * SCALE;
+const GAP_TOP = 6  * SCALE;
 
 function fontB(s: number) { return `bold ${s}px Arial, sans-serif`; }
 function fontM(s: number) { return `500 ${s}px Arial, sans-serif`; }
@@ -60,36 +65,30 @@ function drawText(
 
 function divider(ctx: CanvasRenderingContext2D, y: number) {
   ctx.fillStyle = "#cccccc";
-  ctx.fillRect(MARGIN_PX, y, CONTENT_WIDTH, 1);
+  ctx.fillRect(MARGIN_PX, y, CONTENT_W, SCALE);
 }
 
-function calcHeight(
-  template: LabelTemplate,
-  lang: "en" | "hu"
-): number {
+function calcHeight(template: LabelTemplate, lang: "en" | "hu"): number {
   const c = document.createElement("canvas");
-  c.width = PRINT_WIDTH_PX;
+  c.width = LABEL_W_PX;
   c.height = 100;
   const ctx = c.getContext("2d")!;
   let h = GAP_TOP;
 
-  // Nome
   ctx.font = fontB(F_NAME);
-  const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_WIDTH);
+  const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_W);
   h += nameLines.length * (F_NAME + GAP_SM);
   h += GAP_SM;
 
-  // Descrizione
   if (template.description && template.type !== "bontas") {
     ctx.font = fontR(F_DESC);
-    const dLines = wrapText(ctx, template.description, CONTENT_WIDTH);
+    const dLines = wrapText(ctx, template.description, CONTENT_W);
     h += dLines.length * (F_DESC + GAP_SM);
     h += GAP_SM;
   }
 
-  // Divider + date
   if (template.type !== "custom") {
-    h += 1 + GAP_MD;
+    h += SCALE + GAP_MD;
     if (template.type === "bontas") {
       h += F_LABEL + GAP_SM + F_VALUE + GAP_SM;
     } else {
@@ -98,17 +97,28 @@ function calcHeight(
     h += GAP_SM;
   }
 
-  // Allergeni
   if (template.allergens) {
-    h += 1 + GAP_MD;
+    h += SCALE + GAP_MD;
     ctx.font = fontR(F_ALLERG);
-    const aLines = wrapText(ctx, `${lang === "hu" ? "Allergének" : "Allergens"}: ${template.allergens}`, CONTENT_WIDTH);
+    const aLines = wrapText(
+      ctx,
+      `${lang === "hu" ? "Allergének" : "Allergens"}: ${template.allergens}`,
+      CONTENT_W
+    );
     h += aLines.length * (F_ALLERG + GAP_SM);
     h += GAP_SM;
   }
 
-  h += 6;
+  h += GAP_TOP;
   return h;
+}
+
+// Altezza fisica in mm da passare al driver Rust.
+// 732px (senza scale) = 62mm → ogni px base = 62/732 mm
+export function calcLabelHeightMM(template: LabelTemplate, lang: "en" | "hu"): number {
+  const px = calcHeight(template, lang);
+  // Dividiamo per SCALE per tornare ai px base, poi convertiamo in mm
+  return (px / SCALE) * (62 / 732);
 }
 
 export function renderLabelToCanvas(
@@ -121,28 +131,27 @@ export function renderLabelToCanvas(
   const expiryStr   = format(expiry, "dd.MM.yyyy");
 
   const L = {
-    prepared: lang === "hu" ? "Elkészítve:" : "Prepared:",
-    useby:    lang === "hu" ? "Felhasználható:" : "Use by:",
-    opened:   lang === "hu" ? "Bontás dátuma:" : "Opened:",
-    expires:  lang === "hu" ? "Lejárat:" : "Expires:",
-    allergens:lang === "hu" ? "Allergének:" : "Allergens:",
+    prepared:  lang === "hu" ? "Elkészítve:"    : "Prepared:",
+    useby:     lang === "hu" ? "Felhasználható:" : "Use by:",
+    opened:    lang === "hu" ? "Bontás dátuma:" : "Opened:",
+    allergens: lang === "hu" ? "Allergének:"    : "Allergens:",
   };
 
   const height = calcHeight(template, lang);
   const canvas = document.createElement("canvas");
-  canvas.width  = PRINT_WIDTH_PX;
+  canvas.width  = LABEL_W_PX;
   canvas.height = height;
 
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, PRINT_WIDTH_PX, height);
+  ctx.fillRect(0, 0, LABEL_W_PX, height);
 
   const x = MARGIN_PX;
   let y = GAP_TOP;
 
-  // ── Nome ──
+  // Nome
   ctx.font = fontB(F_NAME);
-  const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_WIDTH);
+  const nameLines = wrapText(ctx, template.name.toUpperCase(), CONTENT_W);
   ctx.fillStyle = "#000";
   for (const l of nameLines) {
     ctx.fillText(l, x, y + F_NAME);
@@ -150,17 +159,17 @@ export function renderLabelToCanvas(
   }
   y += GAP_SM;
 
-  // ── Descrizione ──
+  // Descrizione
   if (template.description && template.type !== "bontas") {
     ctx.font = fontR(F_DESC);
-    const used = drawText(ctx, template.description, x, y + F_DESC, CONTENT_WIDTH, F_DESC + GAP_SM, "#333");
+    const used = drawText(ctx, template.description, x, y + F_DESC, CONTENT_W, F_DESC + GAP_SM, "#333");
     y += used + GAP_SM;
   }
 
-  // ── Date ──
+  // Date
   if (template.type !== "custom") {
     divider(ctx, y);
-    y += 1 + GAP_MD;
+    y += SCALE + GAP_MD;
 
     if (template.type === "bontas") {
       ctx.font = fontR(F_LABEL);
@@ -171,9 +180,7 @@ export function renderLabelToCanvas(
       ctx.fillStyle = "#000";
       ctx.fillText(preparedStr, x, y + F_VALUE);
       y += F_VALUE + GAP_SM;
-
     } else {
-      // Prepared
       ctx.font = fontR(F_LABEL);
       ctx.fillStyle = "#888";
       ctx.fillText(L.prepared, x, y + F_LABEL);
@@ -183,7 +190,6 @@ export function renderLabelToCanvas(
       ctx.fillText(preparedStr, x, y + F_VALUE);
       y += F_VALUE + GAP_SM;
 
-      // Use by
       ctx.font = fontR(F_LABEL);
       ctx.fillStyle = "#888";
       ctx.fillText(L.useby, x, y + F_LABEL);
@@ -196,13 +202,13 @@ export function renderLabelToCanvas(
     y += GAP_SM;
   }
 
-  // ── Allergeni ──
+  // Allergeni
   if (template.allergens) {
     divider(ctx, y);
-    y += 1 + GAP_MD;
+    y += SCALE + GAP_MD;
     ctx.font = fontR(F_ALLERG);
     const algText = `${L.allergens} ${template.allergens}`;
-    const used = drawText(ctx, algText, x, y + F_ALLERG, CONTENT_WIDTH, F_ALLERG + GAP_SM, "#555");
+    const used = drawText(ctx, algText, x, y + F_ALLERG, CONTENT_W, F_ALLERG + GAP_SM, "#555");
     y += used + GAP_SM;
   }
 
