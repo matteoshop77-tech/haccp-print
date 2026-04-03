@@ -17,11 +17,22 @@ export default function App() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
+    let done = false;
+
+    function finish() {
+      if (!done) {
+        done = true;
+        setChecking(false);
+      }
+    }
+
+    // Timeout di sicurezza — sblocca dopo 10 secondi in ogni caso
+    const timeout = setTimeout(finish, 10000);
+
     async function init() {
       try {
         const { data } = await supabase.auth.getSession();
         const session = data.session;
-        console.log("getSession:", session?.user?.id ?? "no session");
         if (session?.user) {
           setAuth(session.user, session);
           await loadTrialStart(session.user.id);
@@ -30,26 +41,29 @@ export default function App() {
       } catch (e) {
         console.error("init error:", e);
       } finally {
-        setChecking(false);
+        clearTimeout(timeout);
+        finish();
       }
     }
 
     init();
 
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("onAuthStateChange:", event, session?.user?.id);
       if (event === "SIGNED_IN" && session?.user) {
         setAuth(session.user, session);
         await loadTrialStart(session.user.id);
         await loadFromCloud(session.user.id);
-        setChecking(false);
+        finish();
       } else if (event === "SIGNED_OUT") {
         clearAuth();
-        setChecking(false);
+        finish();
       }
     });
 
-    return () => listener.subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   async function loadTrialStart(userId: string) {

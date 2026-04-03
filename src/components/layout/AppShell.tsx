@@ -1,7 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/lib/authStore";
-import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/i18n";
 import { LayoutGrid, Tag, FileText, Layers, Settings, Minus, Square, X, AlertTriangle } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
@@ -171,10 +170,6 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const lang = useStore((s) => s.settings.language);
-
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-app-bg text-ink-primary">
