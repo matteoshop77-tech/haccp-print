@@ -198,6 +198,7 @@ export const useStore = create<AppStore>()((set, get) => ({
   },
 
   updateTemplate: (id, partial) => {
+    const { userId } = get();
     const now = new Date().toISOString();
     set((s) => ({
       templates: s.templates.map((t) =>
@@ -217,12 +218,20 @@ export const useStore = create<AppStore>()((set, get) => ({
       pinned:          updated.pinned,
       print_count:     updated.printCount,
       updated_at:      now,
-    }).eq("id", id);
+    }).eq("id", id).eq("user_id", userId ?? "").then(({ error }) => {
+      if (error) console.error("updateTemplate error:", error);
+    });
   },
 
   deleteTemplate: (id) => {
+    const { userId } = get();
     set((s) => ({ templates: s.templates.filter((t) => t.id !== id) }));
-    supabase.from("templates").delete().eq("id", id);
+    supabase.from("templates").delete()
+      .eq("id", id)
+      .eq("user_id", userId ?? "")
+      .then(({ error }) => {
+        if (error) console.error("deleteTemplate error:", error);
+      });
   },
 
   pinTemplate: (id, pinned) => {
