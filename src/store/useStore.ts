@@ -1,16 +1,11 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { supabase } from "@/lib/supabaseClient";
 import type {
   AppSettings,
   LabelTemplate,
   PrintJob,
   License,
 } from "@/lib/types";
-
-const defaultCategories = [
-  "Dessert", "Pasta", "Meat", "Fish", "Sauces",
-  "Soup", "Appetizer", "Bread", "Beverages", "Other",
-];
 
 const defaultSettings: AppSettings = {
   profile:             "restaurant",
@@ -22,86 +17,16 @@ const defaultSettings: AppSettings = {
   haccpLogEnabled:     true,
 };
 
-const demoTemplates: LabelTemplate[] = [
-  {
-    id: "demo-1",
-    name: "Tiramisù",
-    type: "ervenyesseg",
-    category: "Dessert",
-    description: "Mascarpone, eggs, ladyfingers, coffee, cocoa",
-    shelfLifeDays: 3,
-    allergens: "Gluten, Eggs, Dairy",
-    profile: "restaurant",
-    pinned: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    printCount: 24,
-  },
-  {
-    id: "demo-2",
-    name: "Classic Lasagna",
-    type: "bontas",
-    category: "Pasta",
-    description: null,
-    shelfLifeDays: 1,
-    allergens: "Gluten, Eggs, Dairy",
-    profile: "restaurant",
-    pinned: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    printCount: 18,
-  },
-  {
-    id: "demo-3",
-    name: "Panna cotta",
-    type: "termek_leiras",
-    category: "Dessert",
-    description: "Cream, sugar, vanilla, gelatin",
-    shelfLifeDays: 2,
-    allergens: "Dairy",
-    profile: "restaurant",
-    pinned: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    printCount: 9,
-  },
-  {
-    id: "demo-4",
-    name: "Crema catalana",
-    type: "ervenyesseg",
-    category: "Dessert",
-    description: null,
-    shelfLifeDays: 2,
-    allergens: "Eggs, Dairy",
-    profile: "restaurant",
-    pinned: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    printCount: 6,
-  },
-  {
-    id: "demo-5",
-    name: "Bolognese ragù",
-    type: "bontas",
-    category: "Sauces",
-    description: null,
-    shelfLifeDays: 1,
-    allergens: "Gluten, Dairy",
-    profile: "restaurant",
-    pinned: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    printCount: 31,
-  },
-];
-
 interface AppStore {
+  userId:     string | null;
   settings:   AppSettings;
   templates:  LabelTemplate[];
   printJobs:  PrintJob[];
   license:    License | null;
   categories: string[];
+  loaded:     boolean;
 
+  loadFromCloud:   (userId: string) => Promise<void>;
   updateSettings:  (partial: Partial<AppSettings>) => void;
   addTemplate:     (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
   updateTemplate:  (id: string, partial: Partial<LabelTemplate>) => void;
@@ -113,73 +38,215 @@ interface AppStore {
   removeCategory:  (name: string) => void;
 }
 
-export const useStore = create<AppStore>()(
-  persist(
-    (set) => ({
-      settings:   defaultSettings,
-      templates:  demoTemplates,
-      printJobs:  [],
-      license:    null,
-      categories: defaultCategories,
+export const useStore = create<AppStore>()((set, get) => ({
+  userId:     null,
+  settings:   defaultSettings,
+  templates:  [],
+  printJobs:  [],
+  license:    null,
+  categories: [],
+  loaded:     false,
 
-      updateSettings: (partial) =>
-        set((s) => ({ settings: { ...s.settings, ...partial } })),
+  // ── Load all data from Supabase ──────────────────────────────────────────
+  loadFromCloud: async (userId: string) => {
+    set({ userId });
 
-      addTemplate: (tmpl) => {
-        const now = new Date().toISOString();
-        set((s) => ({
-          templates: [
-            ...s.templates,
-            { ...tmpl, id: crypto.randomUUID(), createdAt: now, updatedAt: now, printCount: 0 },
-          ],
-        }));
-      },
+    const [
+      { data: settingsRow },
+      { data: templatesRows },
+      { data: printJobsRows },
+      { data: categoriesRows },
+    ] = await Promise.all([
+      supabase.from("settings").select("*").eq("id", userId).single(),
+      supabase.from("templates").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+      supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
+      supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+    ]);
 
-      updateTemplate: (id, partial) =>
-        set((s) => ({
-          templates: s.templates.map((t) =>
-            t.id === id ? { ...t, ...partial, updatedAt: new Date().toISOString() } : t
-          ),
-        })),
+    const settings: AppSettings = settingsRow ? {
+      profile:             settingsRow.profile             ?? "restaurant",
+      language:            settingsRow.language            ?? "en",
+      theme:               settingsRow.theme               ?? "light",
+      operatorName:        settingsRow.operator_name       ?? "",
+      printerName:         settingsRow.printer_name        ?? null,
+      autoCalculateExpiry: settingsRow.auto_calculate_expiry ?? true,
+      haccpLogEnabled:     settingsRow.haccp_log_enabled   ?? true,
+    } : defaultSettings;
 
-      deleteTemplate: (id) =>
-        set((s) => ({ templates: s.templates.filter((t) => t.id !== id) })),
+    const templates: LabelTemplate[] = (templatesRows ?? []).map((r) => ({
+      id:            r.id,
+      name:          r.name,
+      type:          r.type,
+      category:      r.category,
+      description:   r.description   ?? null,
+      shelfLifeDays: r.shelf_life_days,
+      allergens:     r.allergens     ?? null,
+      profile:       r.profile,
+      pinned:        r.pinned,
+      printCount:    r.print_count,
+      createdAt:     r.created_at,
+      updatedAt:     r.updated_at,
+    }));
 
-      pinTemplate: (id, pinned) =>
-        set((s) => ({
-          templates: s.templates.map((t) => (t.id === id ? { ...t, pinned } : t)),
-        })),
+    const printJobs: PrintJob[] = (printJobsRows ?? []).map((r) => ({
+      id:           r.id,
+      templateId:   r.template_id   ?? "",
+      templateName: r.template_name,
+      labelType:    r.label_type,
+      copies:       r.copies,
+      printedAt:    r.printed_at,
+      preparedDate: r.prepared_date,
+      expiryDate:   r.expiry_date,
+      operatorName: r.operator_name ?? null,
+    }));
 
-      addPrintJob: (job) => {
-        const fullJob: PrintJob = {
-          ...job,
-          id:        crypto.randomUUID(),
-          printedAt: new Date().toISOString(),
-        };
-        set((s) => ({
-          printJobs: [fullJob, ...s.printJobs],
-          templates: s.templates.map((t) =>
-            t.id === job.templateId
-              ? { ...t, printCount: t.printCount + job.copies }
-              : t
-          ),
-        }));
-      },
+    const categories: string[] = (categoriesRows ?? []).map((r) => r.name);
 
-      setLicense: (l) => set({ license: l ?? null }),
+    set({ settings, templates, printJobs, categories, loaded: true });
+  },
 
-      addCategory: (name) =>
-        set((s) => ({
-          categories: s.categories.includes(name)
-            ? s.categories
-            : [...s.categories, name.trim()],
-        })),
+  // ── Settings ─────────────────────────────────────────────────────────────
+  updateSettings: (partial) => {
+    set((s) => ({ settings: { ...s.settings, ...partial } }));
+    const { userId, settings } = get();
+    if (!userId) return;
+    const merged = { ...settings, ...partial };
+    supabase.from("settings").upsert({
+      id:                    userId,
+      profile:               merged.profile,
+      language:              merged.language,
+      theme:                 merged.theme,
+      operator_name:         merged.operatorName,
+      printer_name:          merged.printerName,
+      auto_calculate_expiry: merged.autoCalculateExpiry,
+      haccp_log_enabled:     merged.haccpLogEnabled,
+      updated_at:            new Date().toISOString(),
+    });
+  },
 
-      removeCategory: (name) =>
-        set((s) => ({
-          categories: s.categories.filter((c) => c !== name),
-        })),
-    }),
-    { name: "haccp-print-store" }
-  )
-);
+  // ── Templates ────────────────────────────────────────────────────────────
+  addTemplate: (tmpl) => {
+    const { userId } = get();
+    if (!userId) return;
+    const now = new Date().toISOString();
+    const id  = crypto.randomUUID();
+    set((s) => ({
+      templates: [
+        ...s.templates,
+        { ...tmpl, id, createdAt: now, updatedAt: now, printCount: 0 },
+      ],
+    }));
+    supabase.from("templates").insert({
+      id,
+      user_id:         userId,
+      name:            tmpl.name,
+      type:            tmpl.type,
+      category:        tmpl.category,
+      description:     tmpl.description,
+      shelf_life_days: tmpl.shelfLifeDays,
+      allergens:       tmpl.allergens,
+      profile:         tmpl.profile,
+      pinned:          tmpl.pinned,
+      print_count:     0,
+      created_at:      now,
+      updated_at:      now,
+    });
+  },
+
+  updateTemplate: (id, partial) => {
+    const now = new Date().toISOString();
+    set((s) => ({
+      templates: s.templates.map((t) =>
+        t.id === id ? { ...t, ...partial, updatedAt: now } : t
+      ),
+    }));
+    const updated = get().templates.find((t) => t.id === id);
+    if (!updated) return;
+    supabase.from("templates").update({
+      name:            updated.name,
+      type:            updated.type,
+      category:        updated.category,
+      description:     updated.description,
+      shelf_life_days: updated.shelfLifeDays,
+      allergens:       updated.allergens,
+      profile:         updated.profile,
+      pinned:          updated.pinned,
+      print_count:     updated.printCount,
+      updated_at:      now,
+    }).eq("id", id);
+  },
+
+  deleteTemplate: (id) => {
+    set((s) => ({ templates: s.templates.filter((t) => t.id !== id) }));
+    supabase.from("templates").delete().eq("id", id);
+  },
+
+  pinTemplate: (id, pinned) => {
+    set((s) => ({
+      templates: s.templates.map((t) => (t.id === id ? { ...t, pinned } : t)),
+    }));
+    supabase.from("templates").update({ pinned }).eq("id", id);
+  },
+
+  // ── Print jobs ───────────────────────────────────────────────────────────
+  addPrintJob: (job) => {
+    const { userId } = get();
+    if (!userId) return;
+    const id  = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const fullJob: PrintJob = { ...job, id, printedAt: now };
+    set((s) => ({
+      printJobs: [fullJob, ...s.printJobs],
+      templates: s.templates.map((t) =>
+        t.id === job.templateId
+          ? { ...t, printCount: t.printCount + job.copies }
+          : t
+      ),
+    }));
+    supabase.from("print_jobs").insert({
+      id,
+      user_id:       userId,
+      template_id:   job.templateId   || null,
+      template_name: job.templateName,
+      label_type:    job.labelType,
+      copies:        job.copies,
+      printed_at:    now,
+      prepared_date: job.preparedDate,
+      expiry_date:   job.expiryDate,
+      operator_name: job.operatorName ?? null,
+    });
+    if (job.templateId) {
+      const tmpl = get().templates.find((t) => t.id === job.templateId);
+      if (tmpl) {
+        supabase.from("templates")
+          .update({ print_count: tmpl.printCount })
+          .eq("id", job.templateId);
+      }
+    }
+  },
+
+  // ── License ──────────────────────────────────────────────────────────────
+  setLicense: (l) => set({ license: l ?? null }),
+
+  // ── Categories ───────────────────────────────────────────────────────────
+  addCategory: (name) => {
+    const { userId } = get();
+    if (!userId) return;
+    const trimmed = name.trim();
+    if (get().categories.includes(trimmed)) return;
+    set((s) => ({ categories: [...s.categories, trimmed] }));
+    supabase.from("categories").insert({
+      user_id: userId,
+      name:    trimmed,
+    });
+  },
+
+  removeCategory: (name) => {
+    const { userId } = get();
+    if (!userId) return;
+    set((s) => ({ categories: s.categories.filter((c) => c !== name) }));
+    supabase.from("categories").delete()
+      .eq("user_id", userId)
+      .eq("name", name);
+  },
+}));

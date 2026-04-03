@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useStore } from "@/store/useStore";
+import { useAuthStore } from "@/lib/authStore";
+import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/i18n";
 import type { IndustryProfile } from "@/lib/types";
 import clsx from "clsx";
@@ -46,18 +48,88 @@ function SettingRow({ label, sub, right }: {
 }
 
 const sections = [
+  { key: "account",      group: "Account" },
+  { key: "license",      group: "Account" },
   { key: "profile",      group: "General" },
   { key: "language",     group: "General" },
   { key: "appearance",   group: "General" },
   { key: "device",       group: "Printer" },
   { key: "label_size",   group: "Printer" },
-  { key: "license",      group: "Account" },
   { key: "subscription", group: "Account" },
   { key: "haccp_export", group: "Data" },
   { key: "backup",       group: "Data" },
 ] as const;
 
 type SectionKey = typeof sections[number]["key"];
+
+/* ── Account Section ── */
+function AccountSection({ lang }: { lang: "en" | "hu" }) {
+  const { user } = useAuthStore();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setLoggingOut(true);
+    await supabase.auth.signOut();
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-lg font-medium text-ink-primary">Account</h2>
+        <p className="text-xs text-ink-muted mt-1">
+          {lang === "hu" ? "A bejelentkezett fiók adatai." : "Your signed-in account details."}
+        </p>
+      </div>
+
+      {/* User info card */}
+      <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center gap-4">
+        {/* Avatar */}
+        <div
+          className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+          style={{ background: "#1D9E75" }}
+        >
+          {user?.email?.[0]?.toUpperCase() ?? "?"}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-ink-primary truncate">
+            {user?.email ?? "—"}
+          </p>
+          <p className="text-xs text-ink-muted mt-0.5">
+            {lang === "hu" ? "Bejelentkezve" : "Signed in"}
+          </p>
+        </div>
+      </div>
+
+      {/* Sign out */}
+      <div className="px-4 py-4 bg-app-surface border border-app-border rounded-lg flex items-center justify-between">
+        <div>
+          <p className="text-sm font-medium text-ink-primary">
+            {lang === "hu" ? "Kijelentkezés" : "Sign out"}
+          </p>
+          <p className="text-xs text-ink-muted mt-0.5">
+            {lang === "hu"
+              ? "Kilép a fiókból ezen az eszközön."
+              : "Sign out of your account on this device."}
+          </p>
+        </div>
+        <button
+          onClick={handleSignOut}
+          disabled={loggingOut}
+          className="px-4 py-2 rounded-lg border text-sm font-medium transition-colors disabled:opacity-50"
+          style={{
+            borderColor: "#FECACA",
+            color:       "#B91C1C",
+            background:  "#FEF2F2",
+          }}
+        >
+          {loggingOut
+            ? (lang === "hu" ? "Kilépés…" : "Signing out…")
+            : (lang === "hu" ? "Kijelentkezés" : "Sign out")}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 /* ── Device / Printer section ── */
 function DeviceSection() {
@@ -418,12 +490,11 @@ function LicenseSection({ lang }: { lang: "en" | "hu" }) {
         <p className="text-xs text-ink-muted mb-2">
           {lang === "hu" ? "Még nincs licenced?" : "Don't have a license yet?"}
         </p>
-        
-          <a href="https://haccprint.lemonsqueezy.com"
+        <a
+          href="https://haccprint.lemonsqueezy.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-brand-light hover:underline"
-        >
+          className="text-sm text-brand-light hover:underline">
           {lang === "hu" ? "Vásárolj itt →" : "Buy here →"}
         </a>
       </div>
@@ -436,7 +507,7 @@ export default function SettingsPage() {
   const settings = useStore((s) => s.settings);
   const update   = useStore((s) => s.updateSettings);
 
-  const [active, setActive] = useState<SectionKey>("profile");
+  const [active, setActive] = useState<SectionKey>("account");
 
   const profiles: IndustryProfile[] = ["restaurant", "hotel", "bakery", "pharmacy", "custom"];
   const groups = [...new Set(sections.map((s) => s.group))];
@@ -460,7 +531,9 @@ export default function SettingsPage() {
                       : "text-ink-muted border-transparent hover:text-ink-secondary hover:bg-white/5"
                   )}
                 >
-                  {t(`settings_${s.key}` as Parameters<typeof t>[0], lang)}
+                  {s.key === "account"
+                    ? (lang === "hu" ? "Fiók" : "Account")
+                    : t(`settings_${s.key}` as Parameters<typeof t>[0], lang)}
                 </button>
               ))}
           </div>
@@ -468,6 +541,8 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-5">
+
+        {active === "account" && <AccountSection lang={lang} />}
 
         {active === "profile" && (
           <>
@@ -576,7 +651,7 @@ export default function SettingsPage() {
         {active === "haccp_export" && <HaccpExportSection lang={lang} />}
         {active === "backup"       && <BackupSection lang={lang} />}
 
-        {!["profile", "language", "appearance", "device", "license", "haccp_export", "backup"].includes(active) && (
+        {!["account", "profile", "language", "appearance", "device", "license", "haccp_export", "backup"].includes(active) && (
           <div>
             <h2 className="text-lg font-medium text-ink-primary mb-2">
               {t(`settings_${active}` as Parameters<typeof t>[0], lang)}
