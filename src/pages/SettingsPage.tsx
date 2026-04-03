@@ -394,8 +394,10 @@ function BackupSection({ lang }: { lang: "en" | "hu" }) {
 
 /* ── License Section ── */
 function LicenseSection({ lang }: { lang: "en" | "hu" }) {
-  const license    = useStore((s) => s.license);
-  const setLicense = useStore((s) => s.setLicense);
+  const license        = useStore((s) => s.license);
+  const setLicense     = useStore((s) => s.setLicense);
+  const removeLicense  = useStore((s) => s.removeLicense);
+  const { user }       = useAuthStore();
 
   const [key,     setKey]     = useState("");
   const [loading, setLoading] = useState(false);
@@ -403,11 +405,12 @@ function LicenseSection({ lang }: { lang: "en" | "hu" }) {
 
   const handleActivate = async () => {
     if (!key.trim()) return;
+    if (!user) return;
     setLoading(true);
     setError("");
 
     const { activateLicense } = await import("@/lib/licenseService");
-    const result = await activateLicense(key.trim());
+    const result = await activateLicense(key.trim(), user.id);
 
     setLoading(false);
 
@@ -437,7 +440,7 @@ function LicenseSection({ lang }: { lang: "en" | "hu" }) {
           <span className="badge-brand">{t("license_active", lang)}</span>
         </div>
         <button
-          onClick={() => setLicense(null as any)}
+          onClick={() => removeLicense()}
           className="btn-ghost self-start text-sm"
           style={{ color: "#E05C4A" }}
         >

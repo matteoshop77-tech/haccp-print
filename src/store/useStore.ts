@@ -34,6 +34,7 @@ interface AppStore {
   pinTemplate:     (id: string, pinned: boolean) => void;
   addPrintJob:     (job: Omit<PrintJob, "id" | "printedAt">) => void;
   setLicense:      (l: License | null) => void;
+  removeLicense:   () => Promise<void>;
   addCategory:     (name: string) => void;
   removeCategory:  (name: string) => void;
 }
@@ -52,20 +53,20 @@ export const useStore = create<AppStore>()((set, get) => ({
     console.log("loadFromCloud called with userId:", userId);
 
     try {
-      // Usiamo allSettled: anche se una query fallisce, le altre continuano
       const [
         settingsResult,
         templatesResult,
         printJobsResult,
         categoriesResult,
+        accountResult,
       ] = await Promise.allSettled([
         supabase.from("settings").select("*").eq("id", userId).single(),
         supabase.from("templates").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
         supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
         supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("accounts").select("license_key, license_plan, license_expires_at, activated_at").eq("id", userId).single(),
       ]);
 
-      // Estrai i dati in modo sicuro — se una promise è rejected, usiamo i valori di default
       const settingsRow =
         settingsResult.status === "fulfilled" ? settingsResult.value.data : null;
       const templatesRows =
@@ -74,8 +75,9 @@ export const useStore = create<AppStore>()((set, get) => ({
         printJobsResult.status === "fulfilled" ? printJobsResult.value.data : null;
       const categoriesRows =
         categoriesResult.status === "fulfilled" ? categoriesResult.value.data : null;
+      const accountRow =
+        accountResult.status === "fulfilled" ? accountResult.value.data : null;
 
-      // Loga eventuali errori senza crashare
       if (settingsResult.status === "rejected")
         console.error("settings load error:", settingsResult.reason);
       if (templatesResult.status === "rejected")
@@ -84,8 +86,8 @@ export const useStore = create<AppStore>()((set, get) => ({
         console.error("print_jobs load error:", printJobsResult.reason);
       if (categoriesResult.status === "rejected")
         console.error("categories load error:", categoriesResult.reason);
-
-      console.log("loadFromCloud results:", { settingsRow, templatesRows, printJobsRows, categoriesRows });
+      if (accountResult.status === "rejected")
+        console.error("account load error:", accountResult.reason);
 
       const settings: AppSettings = settingsRow ? {
         profile:             settingsRow.profile             ?? "restaurant",
@@ -126,12 +128,21 @@ export const useStore = create<AppStore>()((set, get) => ({
 
       const categories: string[] = (categoriesRows ?? []).map((r) => r.name);
 
-      // loaded: true viene impostato SEMPRE, anche se alcune query hanno fallito
-      // L'app parte con i dati che ha, meglio di rimanere bloccata
-      set({ settings, templates, printJobs, categories, loaded: true });
+      // Ricostruisce la licenza dai dati di accounts se presente
+      const license: License | null =
+        accountRow?.license_key
+          ? {
+              key:         accountRow.license_key,
+              plan:        accountRow.license_plan ?? "basic",
+              expiresAt:   accountRow.license_expires_at ?? "",
+              deviceId:    "",   // non lo salviamo su DB, non è necessario
+              activatedAt: accountRow.activated_at ?? "",
+            }
+          : null;
+
+      set({ settings, templates, printJobs, categories, license, loaded: true });
 
     } catch (e) {
-      // Errore catastrofico imprevisto — l'app parte comunque con valori di default
       console.error("loadFromCloud unexpected error:", e);
       set({ loaded: true });
     }
@@ -252,6 +263,21 @@ export const useStore = create<AppStore>()((set, get) => ({
   },
 
   setLicense: (l) => set({ license: l ?? null }),
+
+  removeLicense: async () => {
+    const { userId } = get();
+    set({ license: null });
+    if (!userId) return;
+    await supabase
+      .from("accounts")
+      .update({
+        license_key:        null,
+        license_plan:       null,
+        license_expires_at: null,
+        activated_at:       null,
+      })
+      .eq("id", userId);
+  },
 
   addCategory: (name) => {
     const { userId } = get();

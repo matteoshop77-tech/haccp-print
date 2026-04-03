@@ -1,5 +1,7 @@
 // ── Lemon Squeezy License Service ──────────────────────────────────────────
 
+import { supabase } from "@/lib/supabaseClient";
+
 const PRO_ID = "942032";
 
 function getDeviceId(): string {
@@ -28,7 +30,7 @@ export interface ActivateResult {
   error?:   string;
 }
 
-export async function activateLicense(key: string): Promise<ActivateResult> {
+export async function activateLicense(key: string, userId: string): Promise<ActivateResult> {
   try {
     const deviceId     = getDeviceId();
     const instanceName = `HACCPrint-${deviceId}`;
@@ -61,6 +63,24 @@ export async function activateLicense(key: string): Promise<ActivateResult> {
     const expiresAt = data.license_key?.expires_at
       ?? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
 
+    const activatedAt = new Date().toISOString();
+
+    // Salva la licenza su Supabase — persiste tra le sessioni
+    const { error: dbError } = await supabase
+      .from("accounts")
+      .update({
+        license_key:        key.trim(),
+        license_plan:       plan,
+        license_expires_at: expiresAt,
+        activated_at:       activatedAt,
+      })
+      .eq("id", userId);
+
+    if (dbError) {
+      console.error("license save error:", dbError);
+      // Non blocchiamo l'attivazione — la licenza funziona lo stesso in memoria
+    }
+
     return {
       success: true,
       license: {
@@ -68,7 +88,7 @@ export async function activateLicense(key: string): Promise<ActivateResult> {
         plan,
         expiresAt,
         deviceId,
-        activatedAt: new Date().toISOString(),
+        activatedAt,
       },
     };
   } catch {
