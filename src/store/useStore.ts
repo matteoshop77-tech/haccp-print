@@ -47,9 +47,9 @@ export const useStore = create<AppStore>()((set, get) => ({
   categories: [],
   loaded:     false,
 
-  // ── Load all data from Supabase ──────────────────────────────────────────
   loadFromCloud: async (userId: string) => {
     set({ userId });
+    console.log("loadFromCloud called with userId:", userId);
 
     const [
       { data: settingsRow },
@@ -62,6 +62,8 @@ export const useStore = create<AppStore>()((set, get) => ({
       supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
       supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
     ]);
+
+    console.log("loadFromCloud results:", { settingsRow, templatesRows, printJobsRows, categoriesRows });
 
     const settings: AppSettings = settingsRow ? {
       profile:             settingsRow.profile             ?? "restaurant",
@@ -105,7 +107,6 @@ export const useStore = create<AppStore>()((set, get) => ({
     set({ settings, templates, printJobs, categories, loaded: true });
   },
 
-  // ── Settings ─────────────────────────────────────────────────────────────
   updateSettings: (partial) => {
     set((s) => ({ settings: { ...s.settings, ...partial } }));
     const { userId, settings } = get();
@@ -124,9 +125,9 @@ export const useStore = create<AppStore>()((set, get) => ({
     });
   },
 
-  // ── Templates ────────────────────────────────────────────────────────────
   addTemplate: (tmpl) => {
     const { userId } = get();
+    console.log("addTemplate called, userId:", userId);
     if (!userId) return;
     const now = new Date().toISOString();
     const id  = crypto.randomUUID();
@@ -150,6 +151,8 @@ export const useStore = create<AppStore>()((set, get) => ({
       print_count:     0,
       created_at:      now,
       updated_at:      now,
+    }).then(({ data, error }) => {
+      console.log("templates insert result:", { data, error });
     });
   },
 
@@ -188,7 +191,6 @@ export const useStore = create<AppStore>()((set, get) => ({
     supabase.from("templates").update({ pinned }).eq("id", id);
   },
 
-  // ── Print jobs ───────────────────────────────────────────────────────────
   addPrintJob: (job) => {
     const { userId } = get();
     if (!userId) return;
@@ -214,23 +216,16 @@ export const useStore = create<AppStore>()((set, get) => ({
       prepared_date: job.preparedDate,
       expiry_date:   job.expiryDate,
       operator_name: job.operatorName ?? null,
+    }).then(({ data, error }) => {
+      console.log("print_jobs insert result:", { data, error });
     });
-    if (job.templateId) {
-      const tmpl = get().templates.find((t) => t.id === job.templateId);
-      if (tmpl) {
-        supabase.from("templates")
-          .update({ print_count: tmpl.printCount })
-          .eq("id", job.templateId);
-      }
-    }
   },
 
-  // ── License ──────────────────────────────────────────────────────────────
   setLicense: (l) => set({ license: l ?? null }),
 
-  // ── Categories ───────────────────────────────────────────────────────────
   addCategory: (name) => {
     const { userId } = get();
+    console.log("addCategory called, userId:", userId);
     if (!userId) return;
     const trimmed = name.trim();
     if (get().categories.includes(trimmed)) return;
@@ -238,6 +233,8 @@ export const useStore = create<AppStore>()((set, get) => ({
     supabase.from("categories").insert({
       user_id: userId,
       name:    trimmed,
+    }).then(({ data, error }) => {
+      console.log("categories insert result:", { data, error });
     });
   },
 

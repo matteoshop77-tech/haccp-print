@@ -17,25 +17,35 @@ export default function App() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Check if there is already an active session
-    supabase.auth.getSession().then(async ({ data }) => {
-      const session = data.session;
-      if (session?.user) {
-        setAuth(session.user, session);
-        await loadTrialStart(session.user.id);
-        await loadFromCloud(session.user.id);
+    async function init() {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const session = data.session;
+        console.log("getSession:", session?.user?.id ?? "no session");
+        if (session?.user) {
+          setAuth(session.user, session);
+          await loadTrialStart(session.user.id);
+          await loadFromCloud(session.user.id);
+        }
+      } catch (e) {
+        console.error("init error:", e);
+      } finally {
+        setChecking(false);
       }
-      setChecking(false);
-    });
+    }
 
-    // Listen for login / logout events
+    init();
+
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
+      console.log("onAuthStateChange:", event, session?.user?.id);
+      if (event === "SIGNED_IN" && session?.user) {
         setAuth(session.user, session);
         await loadTrialStart(session.user.id);
         await loadFromCloud(session.user.id);
-      } else {
+        setChecking(false);
+      } else if (event === "SIGNED_OUT") {
         clearAuth();
+        setChecking(false);
       }
     });
 
@@ -43,17 +53,20 @@ export default function App() {
   }, []);
 
   async function loadTrialStart(userId: string) {
-    const { data } = await supabase
-      .from("accounts")
-      .select("trial_started_at")
-      .eq("id", userId)
-      .single();
-    if (data?.trial_started_at) {
-      setTrialStart(data.trial_started_at);
+    try {
+      const { data } = await supabase
+        .from("accounts")
+        .select("trial_started_at")
+        .eq("id", userId)
+        .single();
+      if (data?.trial_started_at) {
+        setTrialStart(data.trial_started_at);
+      }
+    } catch (e) {
+      console.error("loadTrialStart error:", e);
     }
   }
 
-  // While checking session → blank screen (avoid flash)
   if (checking) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-app-bg">
@@ -62,12 +75,10 @@ export default function App() {
     );
   }
 
-  // Not logged in → show auth screen
   if (!user) {
     return <AuthPage />;
   }
 
-  // Logged in → show the app
   return (
     <BrowserRouter>
       <AppShell>
