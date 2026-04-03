@@ -37,6 +37,7 @@ interface AppStore {
   removeLicense:   () => Promise<void>;
   addCategory:     (name: string) => void;
   removeCategory:  (name: string) => void;
+  resetStore:      () => void;
 }
 
 export const useStore = create<AppStore>()((set, get) => ({
@@ -163,6 +164,8 @@ export const useStore = create<AppStore>()((set, get) => ({
       auto_calculate_expiry: merged.autoCalculateExpiry,
       haccp_log_enabled:     merged.haccpLogEnabled,
       updated_at:            new Date().toISOString(),
+      }).then(({ error }) => {
+      if (error) console.error("updateSettings error:", error);
     });
   },
 
@@ -319,5 +322,17 @@ export const useStore = create<AppStore>()((set, get) => ({
     supabase.from("categories").delete()
       .eq("user_id", userId)
       .eq("name", name);
+  },
+
+  resetStore: () => {
+    set({
+      userId:     null,
+      settings:   defaultSettings,
+      templates:  [],
+      printJobs:  [],
+      license:    null,
+      categories: [],
+      loaded:     false,
+    });
   },
 }));

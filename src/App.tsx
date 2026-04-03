@@ -13,7 +13,7 @@ import { useStore }     from "@/store/useStore";
 
 export default function App() {
   const { user, setAuth, setTrialStart, clearAuth } = useAuthStore();
-  const { loadFromCloud } = useStore();
+  const { loadFromCloud, resetStore } = useStore();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -88,6 +88,7 @@ export default function App() {
         ]);
         setChecking(false);
       } else if (event === "SIGNED_OUT") {
+        resetStore();
         clearAuth();
         setChecking(false);
       } else if (event === "TOKEN_REFRESHED" && session?.user) {
