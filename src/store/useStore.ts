@@ -226,10 +226,19 @@ export const useStore = create<AppStore>()((set, get) => ({
   },
 
   pinTemplate: (id, pinned) => {
+    const { userId } = get();
     set((s) => ({
       templates: s.templates.map((t) => (t.id === id ? { ...t, pinned } : t)),
     }));
-    supabase.from("templates").update({ pinned }).eq("id", id);
+    supabase
+      .from("templates")
+      .update({ pinned })
+      .eq("id", id)
+      .eq("user_id", userId ?? "")
+      .then(({ error }) => {
+        if (error) console.error("pinTemplate error:", error);
+        else console.log("pinTemplate success — id:", id, "pinned:", pinned);
+      });
   },
 
   addPrintJob: (job) => {
