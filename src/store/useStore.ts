@@ -51,60 +51,90 @@ export const useStore = create<AppStore>()((set, get) => ({
     set({ userId });
     console.log("loadFromCloud called with userId:", userId);
 
-    const [
-      { data: settingsRow },
-      { data: templatesRows },
-      { data: printJobsRows },
-      { data: categoriesRows },
-    ] = await Promise.all([
-      supabase.from("settings").select("*").eq("id", userId).single(),
-      supabase.from("templates").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-      supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
-      supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
-    ]);
+    try {
+      // Usiamo allSettled: anche se una query fallisce, le altre continuano
+      const [
+        settingsResult,
+        templatesResult,
+        printJobsResult,
+        categoriesResult,
+      ] = await Promise.allSettled([
+        supabase.from("settings").select("*").eq("id", userId).single(),
+        supabase.from("templates").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+        supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
+        supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
+      ]);
 
-    console.log("loadFromCloud results:", { settingsRow, templatesRows, printJobsRows, categoriesRows });
+      // Estrai i dati in modo sicuro — se una promise è rejected, usiamo i valori di default
+      const settingsRow =
+        settingsResult.status === "fulfilled" ? settingsResult.value.data : null;
+      const templatesRows =
+        templatesResult.status === "fulfilled" ? templatesResult.value.data : null;
+      const printJobsRows =
+        printJobsResult.status === "fulfilled" ? printJobsResult.value.data : null;
+      const categoriesRows =
+        categoriesResult.status === "fulfilled" ? categoriesResult.value.data : null;
 
-    const settings: AppSettings = settingsRow ? {
-      profile:             settingsRow.profile             ?? "restaurant",
-      language:            settingsRow.language            ?? "en",
-      theme:               settingsRow.theme               ?? "light",
-      operatorName:        settingsRow.operator_name       ?? "",
-      printerName:         settingsRow.printer_name        ?? null,
-      autoCalculateExpiry: settingsRow.auto_calculate_expiry ?? true,
-      haccpLogEnabled:     settingsRow.haccp_log_enabled   ?? true,
-    } : defaultSettings;
+      // Loga eventuali errori senza crashare
+      if (settingsResult.status === "rejected")
+        console.error("settings load error:", settingsResult.reason);
+      if (templatesResult.status === "rejected")
+        console.error("templates load error:", templatesResult.reason);
+      if (printJobsResult.status === "rejected")
+        console.error("print_jobs load error:", printJobsResult.reason);
+      if (categoriesResult.status === "rejected")
+        console.error("categories load error:", categoriesResult.reason);
 
-    const templates: LabelTemplate[] = (templatesRows ?? []).map((r) => ({
-      id:            r.id,
-      name:          r.name,
-      type:          r.type,
-      category:      r.category,
-      description:   r.description   ?? null,
-      shelfLifeDays: r.shelf_life_days,
-      allergens:     r.allergens     ?? null,
-      profile:       r.profile,
-      pinned:        r.pinned,
-      printCount:    r.print_count,
-      createdAt:     r.created_at,
-      updatedAt:     r.updated_at,
-    }));
+      console.log("loadFromCloud results:", { settingsRow, templatesRows, printJobsRows, categoriesRows });
 
-    const printJobs: PrintJob[] = (printJobsRows ?? []).map((r) => ({
-      id:           r.id,
-      templateId:   r.template_id   ?? "",
-      templateName: r.template_name,
-      labelType:    r.label_type,
-      copies:       r.copies,
-      printedAt:    r.printed_at,
-      preparedDate: r.prepared_date,
-      expiryDate:   r.expiry_date,
-      operatorName: r.operator_name ?? null,
-    }));
+      const settings: AppSettings = settingsRow ? {
+        profile:             settingsRow.profile             ?? "restaurant",
+        language:            settingsRow.language            ?? "en",
+        theme:               settingsRow.theme               ?? "light",
+        operatorName:        settingsRow.operator_name       ?? "",
+        printerName:         settingsRow.printer_name        ?? null,
+        autoCalculateExpiry: settingsRow.auto_calculate_expiry ?? true,
+        haccpLogEnabled:     settingsRow.haccp_log_enabled   ?? true,
+      } : defaultSettings;
 
-    const categories: string[] = (categoriesRows ?? []).map((r) => r.name);
+      const templates: LabelTemplate[] = (templatesRows ?? []).map((r) => ({
+        id:            r.id,
+        name:          r.name,
+        type:          r.type,
+        category:      r.category,
+        description:   r.description   ?? null,
+        shelfLifeDays: r.shelf_life_days,
+        allergens:     r.allergens     ?? null,
+        profile:       r.profile,
+        pinned:        r.pinned,
+        printCount:    r.print_count,
+        createdAt:     r.created_at,
+        updatedAt:     r.updated_at,
+      }));
 
-    set({ settings, templates, printJobs, categories, loaded: true });
+      const printJobs: PrintJob[] = (printJobsRows ?? []).map((r) => ({
+        id:           r.id,
+        templateId:   r.template_id   ?? "",
+        templateName: r.template_name,
+        labelType:    r.label_type,
+        copies:       r.copies,
+        printedAt:    r.printed_at,
+        preparedDate: r.prepared_date,
+        expiryDate:   r.expiry_date,
+        operatorName: r.operator_name ?? null,
+      }));
+
+      const categories: string[] = (categoriesRows ?? []).map((r) => r.name);
+
+      // loaded: true viene impostato SEMPRE, anche se alcune query hanno fallito
+      // L'app parte con i dati che ha, meglio di rimanere bloccata
+      set({ settings, templates, printJobs, categories, loaded: true });
+
+    } catch (e) {
+      // Errore catastrofico imprevisto — l'app parte comunque con valori di default
+      console.error("loadFromCloud unexpected error:", e);
+      set({ loaded: true });
+    }
   },
 
   updateSettings: (partial) => {

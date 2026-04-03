@@ -17,69 +17,90 @@ export default function App() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    let done = false;
+    // Flag per evitare aggiornamenti di stato dopo unmount
+    let mounted = true;
+    // Flag per evitare che onAuthStateChange faccia lavoro duplicato
+    // mentre init() sta già gestendo la sessione
+    let initDone = false;
 
-    function finish() {
-      if (!done) {
-        done = true;
-        setChecking(false);
+    async function loadTrialStart(userId: string) {
+      try {
+        const { data } = await supabase
+          .from("accounts")
+          .select("trial_started_at")
+          .eq("id", userId)
+          .single();
+        if (mounted && data?.trial_started_at) {
+          setTrialStart(data.trial_started_at);
+        }
+      } catch (e) {
+        console.error("loadTrialStart error:", e);
       }
     }
-
-    // Timeout di sicurezza — sblocca dopo 10 secondi in ogni caso
-    const timeout = setTimeout(finish, 10000);
 
     async function init() {
       try {
-        const { data } = await supabase.auth.getSession();
+        const { data, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error("getSession error:", error);
+          // Sessione corrotta — puliamo e andiamo al login
+          await supabase.auth.signOut();
+          if (mounted) clearAuth();
+          return;
+        }
+
         const session = data.session;
+
         if (session?.user) {
-          setAuth(session.user, session);
-          await loadTrialStart(session.user.id);
-          await loadFromCloud(session.user.id);
+          if (mounted) setAuth(session.user, session);
+          // Carica i dati in parallelo, ma non crashare se uno fallisce
+          await Promise.allSettled([
+            loadTrialStart(session.user.id),
+            loadFromCloud(session.user.id),
+          ]);
         }
       } catch (e) {
         console.error("init error:", e);
+        // In caso di errore grave, mostriamo il login
+        if (mounted) clearAuth();
       } finally {
-        clearTimeout(timeout);
-        finish();
+        initDone = true;
+        if (mounted) setChecking(false);
       }
     }
 
+    // Avvia il check della sessione
     init();
 
+    // Il listener gestisce SOLO gli eventi che avvengono DOPO che init() è finito
+    // (es: login manuale, logout, token refresh che scade)
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Ignoriamo gli eventi che arrivano durante init() — li gestisce già lui
+      if (!initDone) return;
+      if (!mounted) return;
+
       if (event === "SIGNED_IN" && session?.user) {
         setAuth(session.user, session);
-        await loadTrialStart(session.user.id);
-        await loadFromCloud(session.user.id);
-        finish();
+        await Promise.allSettled([
+          loadTrialStart(session.user.id),
+          loadFromCloud(session.user.id),
+        ]);
+        setChecking(false);
       } else if (event === "SIGNED_OUT") {
         clearAuth();
-        finish();
+        setChecking(false);
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        // Aggiorna silenziosamente la sessione in store senza ricaricare i dati
+        setAuth(session.user, session);
       }
     });
 
     return () => {
-      clearTimeout(timeout);
+      mounted = false;
       listener.subscription.unsubscribe();
     };
   }, []);
-
-  async function loadTrialStart(userId: string) {
-    try {
-      const { data } = await supabase
-        .from("accounts")
-        .select("trial_started_at")
-        .eq("id", userId)
-        .single();
-      if (data?.trial_started_at) {
-        setTrialStart(data.trial_started_at);
-      }
-    } catch (e) {
-      console.error("loadTrialStart error:", e);
-    }
-  }
 
   if (checking) {
     return (

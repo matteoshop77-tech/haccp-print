@@ -7,16 +7,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: true,
     storageKey: "haccprint-auth",
-    storage: {
-      getItem: (key) => {
-        try { return localStorage.getItem(key); } catch { return null; }
-      },
-      setItem: (key, value) => {
-        try { localStorage.setItem(key, value); } catch {}
-      },
-      removeItem: (key) => {
-        try { localStorage.removeItem(key); } catch {}
-      },
-    },
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
   },
 });
