@@ -16,7 +16,6 @@ export default function UpdateChecker() {
           setAvailable(true);
         }
       } catch (e) {
-        // Aggiornamento non disponibile o nessuna connessione — ignoriamo silenziosamente
         console.log("Update check skipped:", e);
       }
     }
@@ -57,7 +56,6 @@ export default function UpdateChecker() {
         gap: "10px",
       }}
     >
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         <div style={{
           width: "36px", height: "36px", borderRadius: "9px",
@@ -82,12 +80,10 @@ export default function UpdateChecker() {
         </div>
       </div>
 
-      {/* Testo */}
       <p style={{ fontSize: "12px", color: "#4A5250", margin: 0, lineHeight: 1.5 }}>
         È disponibile una nuova versione di HACCPrint. L'aggiornamento è automatico e richiede solo qualche secondo.
       </p>
 
-      {/* Bottoni */}
       <div style={{ display: "flex", gap: "8px" }}>
         <button
           onClick={() => setAvailable(false)}
