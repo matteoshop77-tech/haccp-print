@@ -22,12 +22,15 @@ function LogoMark() {
 }
 
 function TitleBar() {
+  const { organizationName } = useAuthStore();
+
   return (
     <div
       data-tauri-drag-region
       className="flex items-center justify-between px-4 h-9 flex-shrink-0 border-b border-app-border select-none"
       style={{ background: "var(--color-app-sidebar, #ECEEE9)" }}
     >
+      {/* Logo + nome app */}
       <div data-tauri-drag-region className="flex items-center gap-2.5">
         <svg width="16" height="16" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
           <rect width="64" height="64" rx="14" fill="#D6EDE4"/>
@@ -39,7 +42,23 @@ function TitleBar() {
         <span data-tauri-drag-region className="text-xs font-semibold text-ink-secondary">
           HACC<span style={{ color: "#1D9E75" }}>Print</span>
         </span>
+
+        {/* Nome organizzazione */}
+        {organizationName && (
+          <>
+            <span data-tauri-drag-region className="text-xs text-ink-muted" style={{ opacity: 0.4 }}>·</span>
+            <span
+              data-tauri-drag-region
+              className="text-xs font-medium"
+              style={{ color: "#1D9E75", opacity: 0.85, maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+            >
+              {organizationName}
+            </span>
+          </>
+        )}
       </div>
+
+      {/* Controlli finestra */}
       <div className="flex items-center gap-1">
         <button
           onClick={() => getCurrentWindow().minimize()}

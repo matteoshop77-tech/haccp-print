@@ -4,12 +4,13 @@ import { supabase } from "@/lib/supabaseClient";
 type Mode = "login" | "register";
 
 export default function AuthPage() {
-  const [mode, setMode]       = useState<Mode>("login");
-  const [email, setEmail]     = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState<string | null>(null);
-  const [info, setInfo]       = useState<string | null>(null);
+  const [mode, setMode]               = useState<Mode>("login");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
+  const [orgName, setOrgName]         = useState("");
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+  const [info, setInfo]               = useState<string | null>(null);
 
   async function handleSubmit() {
     setError(null);
@@ -17,15 +18,23 @@ export default function AuthPage() {
     setLoading(true);
 
     if (mode === "register") {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) {
-        setError(error.message);
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) {
+        setError(signUpError.message);
       } else {
+        // Salva il nome organizzazione nella tabella accounts
+        if (data.user && orgName.trim()) {
+          await supabase.from("accounts").upsert({
+            id:                data.user.id,
+            organization_name: orgName.trim(),
+            trial_started_at:  new Date().toISOString(),
+          });
+        }
         setInfo("Account created! Check your email to confirm, then log in.");
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) setError(error.message);
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) setError(signInError.message);
     }
 
     setLoading(false);
@@ -52,6 +61,23 @@ export default function AuthPage() {
         <p className="text-center text-sm text-ink-muted mb-6">
           {mode === "login" ? "Sign in to your account" : "Create your account — 14 days free"}
         </p>
+
+        {/* Organization name — solo in register */}
+        {mode === "register" && (
+          <div className="mb-3">
+            <label className="block text-xs font-medium text-ink-secondary mb-1">
+              Organization / Restaurant name
+            </label>
+            <input
+              type="text"
+              value={orgName}
+              onChange={(e) => setOrgName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+              placeholder="Es. Ristorante Da Mario"
+              className="w-full rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-ink-primary placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-brand"
+            />
+          </div>
+        )}
 
         {/* Email */}
         <div className="mb-3">

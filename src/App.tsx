@@ -10,31 +10,30 @@ import AuthPage         from "@/pages/AuthPage";
 import { supabase }     from "@/lib/supabaseClient";
 import { useAuthStore } from "@/lib/authStore";
 import { useStore }     from "@/store/useStore";
+import UpdateChecker from "@/components/UpdateChecker";
 
 export default function App() {
-  const { user, setAuth, setTrialStart, clearAuth } = useAuthStore();
+  const { user, setAuth, setTrialStart, setOrganizationName, clearAuth } = useAuthStore();
   const { loadFromCloud, resetStore } = useStore();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // Flag per evitare aggiornamenti di stato dopo unmount
     let mounted = true;
-    // Flag per evitare che onAuthStateChange faccia lavoro duplicato
-    // mentre init() sta già gestendo la sessione
     let initDone = false;
 
-    async function loadTrialStart(userId: string) {
+    async function loadAccountData(userId: string) {
       try {
         const { data } = await supabase
           .from("accounts")
-          .select("trial_started_at")
+          .select("trial_started_at, organization_name")
           .eq("id", userId)
           .single();
-        if (mounted && data?.trial_started_at) {
-          setTrialStart(data.trial_started_at);
+        if (mounted) {
+          if (data?.trial_started_at) setTrialStart(data.trial_started_at);
+          if (data?.organization_name) setOrganizationName(data.organization_name);
         }
       } catch (e) {
-        console.error("loadTrialStart error:", e);
+        console.error("loadAccountData error:", e);
       }
     }
 
@@ -44,7 +43,6 @@ export default function App() {
 
         if (error) {
           console.error("getSession error:", error);
-          // Sessione corrotta — puliamo e andiamo al login
           await supabase.auth.signOut();
           if (mounted) clearAuth();
           return;
@@ -54,15 +52,13 @@ export default function App() {
 
         if (session?.user) {
           if (mounted) setAuth(session.user, session);
-          // Carica i dati in parallelo, ma non crashare se uno fallisce
           await Promise.allSettled([
-            loadTrialStart(session.user.id),
+            loadAccountData(session.user.id),
             loadFromCloud(session.user.id),
           ]);
         }
       } catch (e) {
         console.error("init error:", e);
-        // In caso di errore grave, mostriamo il login
         if (mounted) clearAuth();
       } finally {
         initDone = true;
@@ -70,20 +66,16 @@ export default function App() {
       }
     }
 
-    // Avvia il check della sessione
     init();
 
-    // Il listener gestisce SOLO gli eventi che avvengono DOPO che init() è finito
-    // (es: login manuale, logout, token refresh che scade)
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      // Ignoriamo gli eventi che arrivano durante init() — li gestisce già lui
       if (!initDone) return;
       if (!mounted) return;
 
       if (event === "SIGNED_IN" && session?.user) {
         setAuth(session.user, session);
         await Promise.allSettled([
-          loadTrialStart(session.user.id),
+          loadAccountData(session.user.id),
           loadFromCloud(session.user.id),
         ]);
         setChecking(false);
@@ -92,7 +84,6 @@ export default function App() {
         clearAuth();
         setChecking(false);
       } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        // Aggiorna silenziosamente la sessione in store senza ricaricare i dati
         setAuth(session.user, session);
       }
     });
@@ -126,6 +117,7 @@ export default function App() {
           <Route path="/categories" element={<CategoriesPage />} />
         </Routes>
       </AppShell>
+      <UpdateChecker />
     </BrowserRouter>
   );
 }
