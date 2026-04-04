@@ -22,15 +22,17 @@ export default function AuthPage() {
       if (signUpError) {
         setError(signUpError.message);
       } else {
-        // Salva il nome organizzazione nella tabella accounts
-        if (data.user && orgName.trim()) {
-          await supabase.from("accounts").upsert({
-            id:                data.user.id,
-            organization_name: orgName.trim(),
+        const userId = data.user?.id ?? data.session?.user?.id;
+        if (userId) {
+          const { error: upsertError } = await supabase.from("accounts").upsert({
+            id:                userId,
+            email:             email.trim(),
+            organization_name: orgName.trim() || null,
             trial_started_at:  new Date().toISOString(),
           });
+          if (upsertError) console.error("upsert accounts error:", upsertError);
         }
-        setInfo("Account created! Check your email to confirm, then log in.");
+        setInfo("Account created! You can now sign in.");
       }
     } else {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
