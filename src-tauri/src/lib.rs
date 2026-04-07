@@ -82,14 +82,13 @@ mod win_print {
 
         let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
         devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
-        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION | DM_COPIES;
+        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
 
         unsafe {
             devmode.u1.s1_mut().dmPaperSize   = 256;
             devmode.u1.s1_mut().dmPaperWidth  = paper_w;
             devmode.u1.s1_mut().dmPaperLength = paper_h;
             devmode.u1.s1_mut().dmOrientation = DMORIENT_PORTRAIT as i16;
-            devmode.u1.s1_mut().dmCopies      = copies as i16;
         }
 
         let driver_wide  = to_wide("winspool");
@@ -182,7 +181,7 @@ fn list_printers() -> Vec<String> {
 }
 
 #[tauri::command]
-async fn print_label_image(
+fn print_label_image(
     png_base64: String,
     copies: u32,
     printer_name: Option<String>,
@@ -209,14 +208,7 @@ async fn print_label_image(
         let w_mm = label_w_mm.unwrap_or(62.0);
         let h_mm = label_h_mm.unwrap_or(100.0);
 
-        // Sposta il lavoro pesante su un thread dedicato —
-        // l'UI rimane reattiva e la stampante parte subito
-        tauri::async_runtime::spawn_blocking(move || {
-            win_print::print_png(&png_bytes, &printer, copies.max(1), w_mm, h_mm)
-        })
-        .await
-        .map_err(|e| format!("Thread error: {e}"))??;
-
+        win_print::print_png(&png_bytes, &printer, copies.max(1), w_mm, h_mm)?;
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]
