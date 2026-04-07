@@ -39,6 +39,64 @@ const typeLabel: Record<string, string> = {
   custom:        "Custom",
 };
 
+/* ── Quantity input — shared between both card types ── */
+function CopiesInput({
+  value,
+  onChange,
+  accentColor,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  accentColor?: string;
+}) {
+  const bg = accentColor ? `rgba(212,133,10,0.12)` : "rgba(0,0,0,0.06)";
+  const iconColor = accentColor ?? undefined;
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (raw === "") { onChange(1); return; }
+    const n = Math.min(999, Math.max(1, parseInt(raw, 10)));
+    onChange(n);
+  };
+
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (e.target.value === "" || parseInt(e.target.value, 10) < 1) onChange(1);
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => onChange(Math.max(1, value - 1))}
+        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+        style={{ background: bg }}
+      >
+        <Minus size={9} style={iconColor ? { color: iconColor } : undefined}
+          className={iconColor ? undefined : "text-ink-secondary"} />
+      </button>
+
+      <input
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onChange={handleInputChange}
+        onBlur={handleBlur}
+        onFocus={(e) => e.target.select()}
+        className="text-xs font-semibold text-center tabular-nums text-ink-primary bg-transparent border-0 outline-none"
+        style={{ width: "28px" }}
+      />
+
+      <button
+        onClick={() => onChange(Math.min(999, value + 1))}
+        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+        style={{ background: bg }}
+      >
+        <Plus size={9} style={iconColor ? { color: iconColor } : undefined}
+          className={iconColor ? undefined : "text-ink-secondary"} />
+      </button>
+    </>
+  );
+}
+
 /* ── Bontás quick card — fixed first slot ── */
 function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
   const [copies, setCopies]   = useState(1);
@@ -78,7 +136,7 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
         labelType:    "bontas",
         copies,
         preparedDate: todayStr,
-        expiryDate:   todayStr, // Bontás non ha scadenza futura
+        expiryDate:   todayStr,
         operatorName: settings.operatorName || null,
       });
     }
@@ -99,21 +157,7 @@ function BontasQuickCard({ onPrinted }: { onPrinted: () => void }) {
       </div>
       <p style={{ fontSize: "10px", color: "#C8943A" }}>{today}</p>
       <div className="flex items-center gap-1">
-        <button
-          onClick={() => setCopies((c) => Math.max(1, c - 1))}
-          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(212,133,10,0.12)" }}
-        >
-          <Minus size={9} style={{ color: "#D4850A" }} />
-        </button>
-        <span className="text-xs font-semibold w-4 text-center tabular-nums text-ink-primary">{copies}</span>
-        <button
-          onClick={() => setCopies((c) => Math.min(99, c + 1))}
-          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(212,133,10,0.12)" }}
-        >
-          <Plus size={9} style={{ color: "#D4850A" }} />
-        </button>
+        <CopiesInput value={copies} onChange={setCopies} accentColor="#D4850A" />
         <button
           onClick={handlePrint}
           disabled={loading}
@@ -147,7 +191,6 @@ function QuickCard({ template, onPrinted }: {
 
     if (result.success && settings.haccpLogEnabled) {
       const preparedStr = format(now, "yyyy-MM-dd");
-      // Calcola la vera data di scadenza basata su shelfLifeDays
       const expiryStr   = format(addDays(now, template.shelfLifeDays), "yyyy-MM-dd");
       addPrintJob({
         templateId:   template.id,
@@ -180,21 +223,7 @@ function QuickCard({ template, onPrinted }: {
         {template.shelfLifeDays}d · {template.category}
       </p>
       <div className="flex items-center gap-1">
-        <button
-          onClick={() => setCopies((c) => Math.max(1, c - 1))}
-          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(0,0,0,0.06)" }}
-        >
-          <Minus size={9} className="text-ink-secondary" />
-        </button>
-        <span className="text-xs font-semibold w-4 text-center tabular-nums text-ink-primary">{copies}</span>
-        <button
-          onClick={() => setCopies((c) => Math.min(99, c + 1))}
-          className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-          style={{ background: "rgba(0,0,0,0.06)" }}
-        >
-          <Plus size={9} className="text-ink-secondary" />
-        </button>
+        <CopiesInput value={copies} onChange={setCopies} />
         <button
           onClick={handlePrint}
           disabled={loading}
@@ -262,7 +291,6 @@ export default function HomePage() {
     .filter((j) => j.printedAt.startsWith(today))
     .reduce((sum, j) => sum + j.copies, 0);
 
-  // Conta etichette con scadenza domani (basato su expiryDate nel log)
   const expiring = printJobs.filter((j) => {
     if (!j.expiryDate || j.expiryDate === j.preparedDate) return false;
     return isTomorrow(new Date(j.expiryDate));
