@@ -143,8 +143,6 @@ mod win_print {
             bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }],
         };
 
-        // Un job separato per ogni copia — la stampante inizia subito
-        // senza aspettare che tutte le pagine siano in spooler
         for _ in 0..copies {
             let job = unsafe { StartDocW(dc, &doc_info) };
             if job <= 0 {
