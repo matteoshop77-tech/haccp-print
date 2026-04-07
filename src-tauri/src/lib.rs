@@ -82,13 +82,14 @@ mod win_print {
 
         let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
         devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
-        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
+        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION | DM_COPIES;
 
         unsafe {
             devmode.u1.s1_mut().dmPaperSize   = 256;
             devmode.u1.s1_mut().dmPaperWidth  = paper_w;
             devmode.u1.s1_mut().dmPaperLength = paper_h;
             devmode.u1.s1_mut().dmOrientation = DMORIENT_PORTRAIT as i16;
+            devmode.u1.s1_mut().dmCopies      = copies as i16;
         }
 
         let driver_wide  = to_wide("winspool");
@@ -143,13 +144,14 @@ mod win_print {
             bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }],
         };
 
-        let job = unsafe { StartDocW(dc, &doc_info) };
-        if job <= 0 {
-            unsafe { DeleteDC(dc); }
-            return Err("StartDoc failed — is the printer ready and online?".to_string());
-        }
-
+        // Un job separato per ogni copia — la stampante inizia subito
+        // senza aspettare che tutte le pagine siano in spooler
         for _ in 0..copies {
+            let job = unsafe { StartDocW(dc, &doc_info) };
+            if job <= 0 {
+                unsafe { DeleteDC(dc); }
+                return Err("StartDoc failed — is the printer ready and online?".to_string());
+            }
             unsafe {
                 StartPage(dc);
                 StretchDIBits(
@@ -162,10 +164,11 @@ mod win_print {
                     SRCCOPY,
                 );
                 EndPage(dc);
+                EndDoc(dc);
             }
         }
 
-        unsafe { EndDoc(dc); DeleteDC(dc); }
+        unsafe { DeleteDC(dc); }
         Ok(())
     }
 }
@@ -179,7 +182,7 @@ fn list_printers() -> Vec<String> {
 }
 
 #[tauri::command]
-fn print_label_image(
+async fn print_label_image(
     png_base64: String,
     copies: u32,
     printer_name: Option<String>,
@@ -206,7 +209,14 @@ fn print_label_image(
         let w_mm = label_w_mm.unwrap_or(62.0);
         let h_mm = label_h_mm.unwrap_or(100.0);
 
-        win_print::print_png(&png_bytes, &printer, copies.max(1), w_mm, h_mm)?;
+        // Sposta il lavoro pesante su un thread dedicato —
+        // l'UI rimane reattiva e la stampante parte subito
+        tauri::async_runtime::spawn_blocking(move || {
+            win_print::print_png(&png_bytes, &printer, copies.max(1), w_mm, h_mm)
+        })
+        .await
+        .map_err(|e| format!("Thread error: {e}"))??;
+
         Ok(())
     }
     #[cfg(not(target_os = "windows"))]
