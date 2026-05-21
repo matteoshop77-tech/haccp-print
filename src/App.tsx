@@ -37,6 +37,20 @@ export default function App() {
       }
     }
 
+    // Zero-config: al primo avvio, se nessuna stampante è salvata, ne scelgo
+    // automaticamente una (priorità: QL-800 > QL-* > Brother).
+    async function autoPickPrinterIfMissing() {
+      const { settings, updateSettings } = useStore.getState();
+      if (settings.printerName) return;
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const found = await invoke<string | null>("find_brother_printer");
+        if (mounted && found) updateSettings({ printerName: found });
+      } catch (e) {
+        console.log("autoPickPrinter skipped:", e);
+      }
+    }
+
     async function init() {
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -56,6 +70,7 @@ export default function App() {
             loadAccountData(session.user.id),
             loadFromCloud(session.user.id),
           ]);
+          await autoPickPrinterIfMissing();
         }
       } catch (e) {
         console.error("init error:", e);
@@ -78,6 +93,7 @@ export default function App() {
           loadAccountData(session.user.id),
           loadFromCloud(session.user.id),
         ]);
+        await autoPickPrinterIfMissing();
         setChecking(false);
       } else if (event === "SIGNED_OUT") {
         resetStore();

@@ -156,6 +156,9 @@ const translations = {
     search:  "Search…",
     online:  "Online",
     offline: "Offline",
+    printer_ready:        "Ready",
+    printer_no_driver:    "Driver not detected",
+    printer_no_brother:   "No Brother printer found — install the QL-800 driver",
   },
 
   hu: {
@@ -302,6 +305,9 @@ const translations = {
     search:  "Keresés…",
     online:  "Online",
     offline: "Offline",
+    printer_ready:        "Kész",
+    printer_no_driver:    "Illesztőprogram nem található",
+    printer_no_brother:   "Nincs Brother nyomtató — telepítsd a QL-800 illesztőprogramot",
   },
 } as const;
 

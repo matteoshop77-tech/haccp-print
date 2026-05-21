@@ -56,6 +56,26 @@ mod win_print {
         names
     }
 
+    /// Restituisce la stampante Brother più adatta dall'elenco.
+    /// Priorità: "ql-800" > "ql-" > "brother".
+    pub fn pick_best_brother(printers: &[String]) -> Option<String> {
+        let lower: Vec<(String, &String)> = printers
+            .iter()
+            .map(|n| (n.to_lowercase(), n))
+            .collect();
+
+        if let Some((_, n)) = lower.iter().find(|(l, _)| l.contains("ql-800")) {
+            return Some((*n).clone());
+        }
+        if let Some((_, n)) = lower.iter().find(|(l, _)| l.contains("ql-")) {
+            return Some((*n).clone());
+        }
+        if let Some((_, n)) = lower.iter().find(|(l, _)| l.contains("brother")) {
+            return Some((*n).clone());
+        }
+        None
+    }
+
     pub fn print_png(
         png_bytes: &[u8],
         printer_name: &str,
@@ -186,6 +206,14 @@ fn list_printers() -> Vec<String> {
 }
 
 #[tauri::command]
+fn find_brother_printer() -> Option<String> {
+    #[cfg(target_os = "windows")]
+    { win_print::pick_best_brother(&win_print::list_printers()) }
+    #[cfg(not(target_os = "windows"))]
+    { None }
+}
+
+#[tauri::command]
 fn print_label_image(
     png_base64: String,
     copies: u32,
@@ -204,8 +232,7 @@ fn print_label_image(
             Some(ref n) if !n.is_empty() => n.clone(),
             _ => {
                 let list = win_print::list_printers();
-                list.into_iter()
-                    .find(|n| n.to_lowercase().contains("brother"))
+                win_print::pick_best_brother(&list)
                     .unwrap_or_else(|| "Brother QL-800".to_string())
             }
         };
@@ -230,7 +257,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .invoke_handler(tauri::generate_handler![print_label_image, list_printers])
+        .invoke_handler(tauri::generate_handler![print_label_image, list_printers, find_brother_printer])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

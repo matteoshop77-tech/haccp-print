@@ -316,10 +316,22 @@ export default function HomePage() {
           <h1 className="text-lg font-medium text-ink-primary">{t("home_greeting", lang)}</h1>
         </div>
         <div className="flex items-center gap-2">
-          <span className="badge-brand text-xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
-            Brother QL-800 · {t("online", lang)}
-          </span>
+          {settings.printerName ? (
+            <span className="badge-brand text-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand inline-block" />
+              {settings.printerName} · {t("printer_ready", lang)}
+            </span>
+          ) : (
+            <button
+              onClick={() => navigate("/settings")}
+              className="text-xs px-2 py-1 rounded-md font-medium flex items-center gap-1.5 transition-colors"
+              style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA" }}
+              title={t("printer_no_brother", lang)}
+            >
+              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: "#B91C1C" }} />
+              {t("printer_no_driver", lang)}
+            </button>
+          )}
           {settings.operatorName && (
             <div className="w-8 h-8 rounded-full bg-app-surface border border-app-border
                             flex items-center justify-center text-xs text-ink-muted font-medium">

@@ -25,6 +25,30 @@ Stato: app Tauri 2 + React + TS + Rust per stampa etichette HACCP Brother QL-800
 - Richiede rebuild + reinstall dell'eseguibile sul PC target.
 - Verificare con 5 e 10 copie consecutive che il gap sia effettivamente sceso sotto il secondo.
 
+### F-002 · Zero-config printer detection
+**Data:** 2026-05-21
+**File toccati:** [src-tauri/src/lib.rs](src-tauri/src/lib.rs), [src/App.tsx](src/App.tsx), [src/pages/HomePage.tsx](src/pages/HomePage.tsx), [src/pages/SettingsPage.tsx](src/pages/SettingsPage.tsx), [src/lib/i18n.ts](src/lib/i18n.ts)
+
+**Cosa è stato fatto**
+- **Rust — match prioritario**: nuova funzione `win_print::pick_best_brother(&[String]) -> Option<String>` con priorità `ql-800` > `ql-` > `brother`. Usata sia nel fallback di `print_label_image` sia nella nuova invoke `find_brother_printer`.
+- **Rust — nuova invoke `find_brother_printer`**: ritorna `Option<String>` con la migliore Brother trovata o `null`. Registrata in `tauri::generate_handler!`.
+- **Frontend — auto-pick all'avvio**: in [App.tsx](src/App.tsx) helper `autoPickPrinterIfMissing` chiamato dopo `loadFromCloud` sia in `init()` sia nel listener `SIGNED_IN`. Se `settings.printerName === null` chiama l'invoke e salva via `updateSettings`. L'utente non vede mai la pagina Settings al primo avvio se ha il driver Brother installato.
+- **HomePage — badge reattivo**: il badge hardcoded "Brother QL-800 · Online" è stato sostituito da uno reattivo. Se `settings.printerName` è settato → badge verde con nome reale e "Ready"; altrimenti → bottone rosso "Driver not detected" che linka a `/settings`.
+- **SettingsPage — banner driver**: in `DeviceSection` due banner distinti:
+  - Rosso se zero stampanti installate (link a brother.com)
+  - Arancio se ci sono stampanti ma nessuna Brother/QL- rilevata
+- **i18n — nuove chiavi**: `printer_ready`, `printer_no_driver`, `printer_no_brother` in en + hu.
+
+**Effetto atteso**
+- **Flusso "happy path"**: utente installa driver Brother → lancia app → fa login → stampa. Zero interazione con Settings.
+- **Flusso "driver mancante"**: utente vede subito sulla HomePage il bottone rosso "Driver not detected" che porta direttamente alla Settings → Printer con istruzioni e link al sito Brother.
+- `cargo check --release` + `tsc --noEmit` puliti.
+
+**Note**
+- L'auto-pick avviene anche dopo aver fatto SIGNED_OUT + SIGNED_IN (utile se l'utente cambia macchina).
+- Se in futuro l'utente avesse più stampanti Brother (es. QL-800 + QL-820), viene preferita la QL-800 grazie al match prioritario; può comunque cambiarla manualmente da Settings.
+- Risolve in anticipo parte del lavoro previsto per S-004 (capabilities): la nuova invoke `find_brother_printer` andrà aggiunta all'allowlist se/quando si stringono le capabilities.
+
 ---
 
 ## 📋 Audit completo (2026-05-21)

@@ -169,10 +169,40 @@ function DeviceSection() {
       <div className="flex flex-col gap-2">
         {loading && <p className="text-sm text-ink-muted px-1">Scanning printers…</p>}
         {!loading && printers.length === 0 && refreshed && (
-          <p className="text-sm text-ink-muted px-1">
-            No printers found. Make sure the Brother QL-800 driver is installed.
-          </p>
+          <div
+            className="text-sm px-3 py-2 rounded-md"
+            style={{ background: "#FEF2F2", color: "#B91C1C", border: "1px solid #FECACA" }}
+          >
+            No printers found. Install the Brother QL-800 driver from{" "}
+            <a
+              href="https://www.brother.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline font-medium"
+            >
+              brother.com
+            </a>
+            , then click Refresh.
+          </div>
         )}
+        {!loading && printers.length > 0 && refreshed &&
+          !printers.some((n) => n.toLowerCase().includes("brother") || n.toLowerCase().includes("ql-")) && (
+            <div
+              className="text-sm px-3 py-2 rounded-md"
+              style={{ background: "#FFF7ED", color: "#C2410C", border: "1px solid #FDBA74" }}
+            >
+              No Brother printer detected among installed printers. Install the QL-800 driver from{" "}
+              <a
+                href="https://www.brother.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline font-medium"
+              >
+                brother.com
+              </a>
+              .
+            </div>
+          )}
         {printers.map((name) => {
           const isBrother  = name.toLowerCase().includes("brother");
           const isSelected = selected === name;
