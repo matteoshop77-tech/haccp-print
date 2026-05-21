@@ -40,6 +40,15 @@ interface AppStore {
   resetStore:      () => void;
 }
 
+interface SupabaseError {
+  error: { message: string } | null;
+}
+
+interface SupabaseResult<T> {
+  data: T | null;
+  error: { message: string } | null;
+}
+
 export const useStore = create<AppStore>()((set, get) => ({
   userId:     null,
   settings:   defaultSettings,
@@ -90,17 +99,19 @@ export const useStore = create<AppStore>()((set, get) => ({
       if (accountResult.status === "rejected")
         console.error("account load error:", accountResult.reason);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const settings: AppSettings = settingsRow ? {
-        profile:             settingsRow.profile             ?? "restaurant",
-        language:            settingsRow.language            ?? "en",
-        theme:               settingsRow.theme               ?? "light",
-        operatorName:        settingsRow.operator_name       ?? "",
-        printerName:         settingsRow.printer_name        ?? null,
-        autoCalculateExpiry: settingsRow.auto_calculate_expiry ?? true,
-        haccpLogEnabled:     settingsRow.haccp_log_enabled   ?? true,
+        profile:             (settingsRow as any).profile             ?? "restaurant",
+        language:            (settingsRow as any).language            ?? "en",
+        theme:               (settingsRow as any).theme               ?? "light",
+        operatorName:        (settingsRow as any).operator_name       ?? "",
+        printerName:         (settingsRow as any).printer_name        ?? null,
+        autoCalculateExpiry: (settingsRow as any).auto_calculate_expiry ?? true,
+        haccpLogEnabled:     (settingsRow as any).haccp_log_enabled   ?? true,
       } : defaultSettings;
 
-      const templates: LabelTemplate[] = (templatesRows ?? []).map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const templates: LabelTemplate[] = ((templatesRows ?? []) as any[]).map((r) => ({
         id:            r.id,
         name:          r.name,
         type:          r.type,
@@ -115,7 +126,8 @@ export const useStore = create<AppStore>()((set, get) => ({
         updatedAt:     r.updated_at,
       }));
 
-      const printJobs: PrintJob[] = (printJobsRows ?? []).map((r) => ({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const printJobs: PrintJob[] = ((printJobsRows ?? []) as any[]).map((r) => ({
         id:           r.id,
         templateId:   r.template_id   ?? "",
         templateName: r.template_name,
@@ -127,17 +139,19 @@ export const useStore = create<AppStore>()((set, get) => ({
         operatorName: r.operator_name ?? null,
       }));
 
-      const categories: string[] = (categoriesRows ?? []).map((r) => r.name);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const categories: string[] = ((categoriesRows ?? []) as any[]).map((r) => r.name);
 
-      // Ricostruisce la licenza dai dati di accounts se presente
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountRowAny = accountRow as any;
       const license: License | null =
-        accountRow?.license_key
+        accountRowAny?.license_key
           ? {
-              key:         accountRow.license_key,
-              plan:        accountRow.license_plan ?? "basic",
-              expiresAt:   accountRow.license_expires_at ?? "",
-              deviceId:    "",   // non lo salviamo su DB, non è necessario
-              activatedAt: accountRow.activated_at ?? "",
+              key:         accountRowAny.license_key,
+              plan:        accountRowAny.license_plan ?? "basic",
+              expiresAt:   accountRowAny.license_expires_at ?? "",
+              deviceId:    "",
+              activatedAt: accountRowAny.activated_at ?? "",
             }
           : null;
 
@@ -164,7 +178,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       auto_calculate_expiry: merged.autoCalculateExpiry,
       haccp_log_enabled:     merged.haccpLogEnabled,
       updated_at:            new Date().toISOString(),
-      }).then(({ error }) => {
+    }).then(({ error }: SupabaseError) => {
       if (error) console.error("updateSettings error:", error);
     });
   },
@@ -195,7 +209,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       print_count:     0,
       created_at:      now,
       updated_at:      now,
-    }).then(({ data, error }) => {
+    }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("templates insert result:", { data, error });
     });
   },
@@ -221,7 +235,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       pinned:          updated.pinned,
       print_count:     updated.printCount,
       updated_at:      now,
-    }).eq("id", id).eq("user_id", userId ?? "").then(({ error }) => {
+    }).eq("id", id).eq("user_id", userId ?? "").then(({ error }: SupabaseError) => {
       if (error) console.error("updateTemplate error:", error);
     });
   },
@@ -232,7 +246,7 @@ export const useStore = create<AppStore>()((set, get) => ({
     supabase.from("templates").delete()
       .eq("id", id)
       .eq("user_id", userId ?? "")
-      .then(({ error }) => {
+      .then(({ error }: SupabaseError) => {
         if (error) console.error("deleteTemplate error:", error);
       });
   },
@@ -247,7 +261,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       .update({ pinned })
       .eq("id", id)
       .eq("user_id", userId ?? "")
-      .then(({ error }) => {
+      .then(({ error }: SupabaseError) => {
         if (error) console.error("pinTemplate error:", error);
         else console.log("pinTemplate success — id:", id, "pinned:", pinned);
       });
@@ -278,7 +292,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       prepared_date: job.preparedDate,
       expiry_date:   job.expiryDate,
       operator_name: job.operatorName ?? null,
-    }).then(({ data, error }) => {
+    }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("print_jobs insert result:", { data, error });
     });
   },
@@ -310,7 +324,7 @@ export const useStore = create<AppStore>()((set, get) => ({
     supabase.from("categories").insert({
       user_id: userId,
       name:    trimmed,
-    }).then(({ data, error }) => {
+    }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("categories insert result:", { data, error });
     });
   },

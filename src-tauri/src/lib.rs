@@ -143,12 +143,20 @@ mod win_print {
             bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }],
         };
 
+        // RAII guard: garantisce DeleteDC anche su early-return / panic.
+        struct DcGuard(winapi::shared::windef::HDC);
+        impl Drop for DcGuard {
+            fn drop(&mut self) { unsafe { DeleteDC(self.0); } }
+        }
+        let _dc_guard = DcGuard(dc);
+
+        // Un solo job per N copie → niente teardown/startup spooler tra una copia e l'altra.
+        let job = unsafe { StartDocW(dc, &doc_info) };
+        if job <= 0 {
+            return Err("StartDoc failed — is the printer ready and online?".to_string());
+        }
+
         for _ in 0..copies {
-            let job = unsafe { StartDocW(dc, &doc_info) };
-            if job <= 0 {
-                unsafe { DeleteDC(dc); }
-                return Err("StartDoc failed — is the printer ready and online?".to_string());
-            }
             unsafe {
                 StartPage(dc);
                 StretchDIBits(
@@ -161,11 +169,10 @@ mod win_print {
                     SRCCOPY,
                 );
                 EndPage(dc);
-                EndDoc(dc);
             }
         }
 
-        unsafe { DeleteDC(dc); }
+        unsafe { EndDoc(dc); }
         Ok(())
     }
 }
