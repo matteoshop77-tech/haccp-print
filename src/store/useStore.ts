@@ -319,7 +319,24 @@ export const useStore = create<AppStore>()((set, get) => ({
     });
   },
 
-  setLicense: (l) => set({ license: l ?? null }),
+  setLicense: (l) => {
+    const previousLicense = get().license;
+    set({ license: l ?? null });
+    const { userId } = get();
+    // null = clear locale-only (per la persistenza esiste removeLicense).
+    if (!userId || !l) return;
+    supabase.from("accounts").update({
+      license_key:        l.key,
+      license_plan:       l.plan,
+      license_expires_at: l.expiresAt,
+      activated_at:       l.activatedAt,
+    }).eq("id", userId).then(({ error }: SupabaseError) => {
+      if (error) {
+        console.error("setLicense failed, rolling back:", error);
+        set({ license: previousLicense });
+      }
+    });
+  },
 
   removeLicense: async () => {
     const { userId } = get();

@@ -30,6 +30,8 @@ winapi = { version = "0.3", features = [
   "winnt",
   "minwindef",
   "windef",
+  "errhandlingapi",
+  "winerror",
 ] }
 
 [profile.dev]

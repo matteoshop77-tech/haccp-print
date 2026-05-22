@@ -13,33 +13,61 @@ mod win_print {
     }
 
     pub fn list_printers() -> Vec<String> {
+        use winapi::um::errhandlingapi::GetLastError;
+        use winapi::shared::winerror::ERROR_INSUFFICIENT_BUFFER;
+
+        // Pattern Win32: prima call con buffer NULL fallisce con
+        // ERROR_INSUFFICIENT_BUFFER e popola `needed`. Seconda call (con buffer
+        // allocato) può fallire di nuovo se la lista cresce nel frattempo —
+        // retry fino a 3 tentativi per gestire la race.
+        let mut buf: Vec<u8> = Vec::new();
         let mut needed: DWORD = 0;
         let mut returned: DWORD = 0;
-        unsafe {
-            EnumPrintersW(
-                PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
-                std::ptr::null_mut(),
-                4,
-                std::ptr::null_mut(),
-                0,
-                &mut needed,
-                &mut returned,
-            );
+        let mut success = false;
+
+        for attempt in 0..3 {
+            let buf_size = buf.len() as DWORD;
+            let buf_ptr = if buf.is_empty() {
+                std::ptr::null_mut()
+            } else {
+                buf.as_mut_ptr()
+            };
+
+            let ok = unsafe {
+                EnumPrintersW(
+                    PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
+                    std::ptr::null_mut(),
+                    4,
+                    buf_ptr,
+                    buf_size,
+                    &mut needed,
+                    &mut returned,
+                )
+            };
+
+            if ok != 0 {
+                success = true;
+                break;
+            }
+
+            let err = unsafe { GetLastError() };
+            if err != ERROR_INSUFFICIENT_BUFFER {
+                eprintln!("EnumPrintersW failed at attempt {}: error 0x{:X}", attempt + 1, err);
+                return vec![];
+            }
+            if needed == 0 {
+                // Driver dice "ho bisogno di più buffer" ma needed=0: scenario
+                // anomalo, evito loop infinito.
+                return vec![];
+            }
+            buf.resize(needed as usize, 0);
         }
-        if needed == 0 { return vec![]; }
-        let mut buf = vec![0u8; needed as usize];
-        let ok = unsafe {
-            EnumPrintersW(
-                PRINTER_ENUM_LOCAL | PRINTER_ENUM_CONNECTIONS,
-                std::ptr::null_mut(),
-                4,
-                buf.as_mut_ptr(),
-                needed,
-                &mut needed,
-                &mut returned,
-            )
-        };
-        if ok == 0 { return vec![]; }
+
+        if !success {
+            eprintln!("EnumPrintersW: lista cresciuta in modo continuativo, esauriti i 3 tentativi.");
+            return vec![];
+        }
+
         let mut names = vec![];
         let struct_size = std::mem::size_of::<PRINTER_INFO_4W>();
         for i in 0..returned as usize {

@@ -3,7 +3,7 @@ import { format, addDays } from "date-fns";
 import { Printer, X, Minus, Plus } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { printLabel } from "@/lib/printService";
-import { renderLabelToCanvas } from "@/lib/labelRenderer";
+import { drawLabelOnCanvas } from "@/lib/labelRenderer";
 import { formatLabelDate } from "@/lib/printService";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate } from "@/lib/types";
@@ -22,18 +22,15 @@ function LabelPreview({ template, preparedDate, lang }: {
   lang: "en" | "hu";
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef    = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current) return;
-    const canvas = renderLabelToCanvas(template, preparedDate, lang);
-    const maxW = containerRef.current.clientWidth || 340;
-    const scale = maxW / canvas.width;
-    canvas.style.width  = `${canvas.width * scale}px`;
-    canvas.style.height = `${canvas.height * scale}px`;
-    canvas.style.borderRadius = "8px";
-    canvas.style.display = "block";
-    containerRef.current.innerHTML = "";
-    containerRef.current.appendChild(canvas);
+    if (!canvasRef.current || !containerRef.current) return;
+    drawLabelOnCanvas(canvasRef.current, template, preparedDate, lang);
+    const maxW  = containerRef.current.clientWidth || 340;
+    const scale = maxW / canvasRef.current.width;
+    canvasRef.current.style.width  = `${canvasRef.current.width  * scale}px`;
+    canvasRef.current.style.height = `${canvasRef.current.height * scale}px`;
   }, [template, preparedDate, lang]);
 
   return (
@@ -41,7 +38,12 @@ function LabelPreview({ template, preparedDate, lang }: {
       ref={containerRef}
       className="w-full rounded-lg overflow-hidden"
       style={{ background: "#fff", minHeight: "80px" }}
-    />
+    >
+      <canvas
+        ref={canvasRef}
+        style={{ borderRadius: "8px", display: "block" }}
+      />
+    </div>
   );
 }
 

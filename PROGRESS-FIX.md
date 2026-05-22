@@ -165,6 +165,22 @@ Le label "Prepared:" / "Use by:" / "Opened:" (e gli equivalenti ungheresi "Elké
 - **L-014 (import dinamico Tauri)**: già risolto a inizio sessione (incluso in commit `afc56c7`), `await import("@tauri-apps/api/core")` sostituito con import statico in `printService.ts`, `SettingsPage.tsx`, `App.tsx`. Catalogato qui per chiusura del ticket.
 - **S-004 (capabilities)**: aggiunto `description` esteso in `default.json` che documenta i custom invoke esposti (`print_label_image`, `list_printers`, `find_brother_printer`). **In Tauri 2 non esiste sintassi di per-command allowlist per non-plugin invoke**, quindi questo fix è documentativo — la formulazione originale del ticket era basata sul modello Tauri 1. Il tightening reale (rimuovere `core:default` granulare) richiede audit dedicato — fuori da questo P2.
 
+### F-011 · Batch L1: setLicense persistence, EnumPrinters retry, canvas React-controlled
+**Data:** 2026-05-22
+**File toccati:** [src/store/useStore.ts](src/store/useStore.ts), [src-tauri/src/lib.rs](src-tauri/src/lib.rs), [src-tauri/Cargo.toml](src-tauri/Cargo.toml), [src/lib/labelRenderer.ts](src/lib/labelRenderer.ts), [src/components/labels/PrintModal.tsx](src/components/labels/PrintModal.tsx)
+
+- **L-004 (setLicense persiste)**: `setLicense(l)` ora fa l'upsert su `accounts` (license_key/plan/expires_at/activated_at) quando `l` non è null, con rollback dello stato locale se Supabase ritorna error (stesso pattern di F-008). Su `null` resta locale-only — la persistenza del clear passa da `removeLicense`. L'upsert duplicato con `activateLicense` (che già scriveva) è idempotente, niente effetto collaterale visibile.
+
+- **L-011 (EnumPrinters error handling)**: la double-call ignorava `GetLastError`. Riscritto come retry loop a 3 tentativi (pattern Win32 canonico):
+  1. Prima call con buffer NULL fallisce con `ERROR_INSUFFICIENT_BUFFER` (atteso), popola `needed`.
+  2. Allocazione + retry. Se la lista è cresciuta nel frattempo, altro `ERROR_INSUFFICIENT_BUFFER` → resize + retry.
+  3. Errori non-buffer → `eprintln` + return vec vuoto (vs il "silent empty" precedente).
+  - Aggiunte feature `errhandlingapi` e `winerror` a `Cargo.toml` per `GetLastError` e `ERROR_INSUFFICIENT_BUFFER`.
+  - Signature pubblica invariata (`Vec<String>` — Tauri-friendly). Gli errori vanno in stderr, frontend continua a vedere "0 printers" come fallback comportamentale.
+
+- **L-012 (canvas React-controlled)**: estratto `drawLabelOnCanvas(canvas, template, preparedDate, lang)` da `labelRenderer.ts`. `renderLabelToCanvas` esistente ora è un thin wrapper (`document.createElement("canvas") + drawLabelOnCanvas`), backward-compatible con `renderLabelToPNG` chiamato da `printService.ts`. `LabelPreview` in `PrintModal.tsx` riscritto: ora ha `<canvas ref={canvasRef} />` JSX e in `useEffect` chiama `drawLabelOnCanvas(canvasRef.current, ...)` + style scaling. Eliminato il pattern `innerHTML="" + appendChild` (anti-pattern React: ogni re-render distruggeva/ricreava il DOM child).
+  - **Verifica visiva consigliata**: stampare 1 etichetta prima e dopo per confermare che il PNG generato sia bit-per-bit identico (la pipeline raster non è cambiata, solo il container in cui il canvas vive).
+
 ---
 
 ## 📋 Audit completo (2026-05-21)
@@ -241,14 +257,14 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 |----|----------|-------|------|
 | ~~L-010~~ (EndDoc su errore) | ✅ done | — | Risolto in F-003: il nuovo path RAW usa `DocGuard`/`PageGuard` RAII che garantiscono `EndDocPrinter`/`EndPagePrinter` in ogni branch. |
 | ~~L-002 / L-003~~ (rollback Zustand) | ✅ done | — | Risolto in F-008: snapshot+restore inline per le 7 mutazioni ottimistiche di useStore. |
-| L-004 (`setLicense` non persiste) | **P1** | 30 min | O `setLicense` persiste su Supabase, o lo rimuoviamo dall'interfaccia pubblica e si passa solo da `activateLicense`/`removeLicense`. |
+| ~~L-004~~ (`setLicense` non persiste) | ✅ done | — | Risolto in F-011: upsert su `accounts` quando license non-null + rollback su error. `null` resta locale-only (per il clear esiste `removeLicense`). |
 | ~~L-013~~ (doppio fetch) | ✅ done | — | Risolto in F-007: rimossa `init()` manuale, tutto su `onAuthStateChange` con `INITIAL_SESSION`. |
 | ~~L-001~~ (initDone closure) | ✅ done | — | Risolto in F-007 come effetto collaterale di L-013 (rimosso `initDone` insieme a `init()`). |
 | ~~L-005~~ (riga morta HomePage) | ✅ done | — | Risolto in F-010: riga `templates.find(...)` eliminata. |
 | L-006 (tipi Supabase) | **P2** | 1 h | `supabase gen types typescript --project-id <id> > src/lib/database.types.ts` + sostituire `as any`. |
 | L-008 / L-009 (calcHeight) | **P2** | 1 h | Funzione `measure(ctx, …)` riusabile, eliminare canvas usa-e-getta, allineare altezza calcolata a quella renderizzata. |
-| L-011 (EnumPrinters) | **P2** | 15 min | Loop `while GetLastError()==ERROR_INSUFFICIENT_BUFFER`. |
-| L-012 (canvas in PrintModal) | **P2** | 30 min | Componente con `<canvas ref={…}>` e disegno nel ref. |
+| ~~L-011~~ (EnumPrinters) | ✅ done | — | Risolto in F-011: retry loop a 3 tentativi con check `GetLastError() == ERROR_INSUFFICIENT_BUFFER`, errori loggati a stderr. |
+| ~~L-012~~ (canvas in PrintModal) | ✅ done | — | Risolto in F-011: estratto `drawLabelOnCanvas`, `LabelPreview` ora ha `<canvas ref>` JSX, niente più `innerHTML=""` + `appendChild`. |
 | ~~L-014~~ (import dinamico) | ✅ done | — | Risolto in F-010: import statico di `@tauri-apps/api/core` in `printService.ts`, `SettingsPage.tsx`, `App.tsx`. |
 | ~~L-015~~ (DMPAPER_USER) | ✅ done | — | Obsoleto post F-003: il path RAW non usa più `DEVMODE`; il formato è specificato nel raster command (`ESC i z`). |
 | L-007 (label width hardcoded) | **P2** | 1 h | Spostare `labelWMM` in `AppSettings` come `labelWidthMm: 29|38|62|102`. |

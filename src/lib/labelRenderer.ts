@@ -140,11 +140,12 @@ export function calcLabelHeightMM(template: LabelTemplate, lang: "en" | "hu"): n
   return mm + 8;
 }
 
-export function renderLabelToCanvas(
+export function drawLabelOnCanvas(
+  canvas: HTMLCanvasElement,
   template: LabelTemplate,
   preparedDate: Date,
   lang: "en" | "hu" = "en"
-): HTMLCanvasElement {
+): void {
   const expiry      = addDays(preparedDate, template.shelfLifeDays);
   const preparedStr = format(preparedDate, "dd.MM.yyyy");
   const expiryStr   = format(expiry, "dd.MM.yyyy");
@@ -157,7 +158,8 @@ export function renderLabelToCanvas(
   };
 
   const height = calcHeight(template, lang);
-  const canvas = document.createElement("canvas");
+  // Assegnare width/height al canvas azzera il bitmap automaticamente — usiamo
+  // questo per re-renderizzare sullo stesso canvas senza accumulare disegno.
   canvas.width  = LABEL_W_PX;
   canvas.height = height;
 
@@ -205,7 +207,15 @@ export function renderLabelToCanvas(
     ctx.font = fontR(F_ALLERG);
     drawText(ctx, `${L.allergens} ${template.allergens}`, x, y + F_ALLERG, CONTENT_W, F_ALLERG + GAP_SM, COL_ALLERG);
   }
+}
 
+export function renderLabelToCanvas(
+  template: LabelTemplate,
+  preparedDate: Date,
+  lang: "en" | "hu" = "en"
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  drawLabelOnCanvas(canvas, template, preparedDate, lang);
   return canvas;
 }
 
