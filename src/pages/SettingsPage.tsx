@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/lib/authStore";
 import { supabase } from "@/lib/supabaseClient";
@@ -143,7 +144,6 @@ function DeviceSection() {
   const loadPrinters = async () => {
     setLoading(true);
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       const list = await invoke<string[]>("list_printers");
       setPrinters(list);
     } catch {

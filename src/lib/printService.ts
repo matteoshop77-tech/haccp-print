@@ -1,4 +1,5 @@
 import { format, addDays } from "date-fns";
+import { invoke } from "@tauri-apps/api/core";
 import type { LabelTemplate } from "@/lib/types";
 import { renderLabelToPNG, calcLabelHeightMM } from "@/lib/labelRenderer";
 
@@ -34,8 +35,6 @@ export async function printLabel(
   const labelHMM = calcLabelHeightMM(template, lang);
 
   try {
-    const { invoke } = await import("@tauri-apps/api/core");
-
     console.time("[PRINT] 2. invoke print_label_image");
     await invoke("print_label_image", {
       pngBase64:  pngData,

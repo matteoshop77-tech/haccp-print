@@ -25,7 +25,7 @@ function fontR(s: number) { return `400 ${s}px ${FONT}`; }
 
 const COL_NAME  = "#000000";
 const COL_DESC  = "#333333";
-const COL_LABEL = "#777777";
+const COL_LABEL = "#000000";
 const COL_VALUE = "#111111";
 const COL_VALUE_BOLD = "#000000";
 const COL_ALLERG = "#444444";

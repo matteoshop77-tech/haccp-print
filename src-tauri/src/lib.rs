@@ -3,8 +3,9 @@
 mod win_print {
     use std::ffi::OsStr;
     use std::os::windows::ffi::OsStrExt;
+    use std::ptr::null_mut;
     use winapi::um::winspool::*;
-    use winapi::um::wingdi::*;
+    use winapi::um::winnt::HANDLE;
     use winapi::shared::minwindef::*;
 
     fn to_wide(s: &str) -> Vec<u16> {
@@ -76,124 +77,192 @@ mod win_print {
         None
     }
 
+    // ─── Brother QL-800 raster encoding ────────────────────────────────────
+    // Stream RAW spedito allo spooler con datatype "RAW". Bypassa la
+    // pipeline GDI del driver Brother (che pre-renderizzava ogni copia
+    // separatamente, ~2s per copia su 20 etichette).
+
+    const PRINT_PINS: u32       = 696;  // attivo printable across 62mm tape
+    const LEFT_MARGIN_PINS: u32 = 12;   // offset all'interno della testina 720-pin
+    const BYTES_PER_LINE: usize = 90;   // 720 / 8
+
+    fn build_brother_raster_62mm(png_bytes: &[u8]) -> Result<Vec<u8>, String> {
+        let dyn_img = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png)
+            .map_err(|e| format!("PNG decode error: {e}"))?;
+        let orig_w = dyn_img.width();
+        let orig_h = dyn_img.height();
+        if orig_w == 0 || orig_h == 0 {
+            return Err("PNG has zero dimensions".to_string());
+        }
+
+        let target_h = ((orig_h as u64 * PRINT_PINS as u64 + orig_w as u64 / 2)
+            / orig_w as u64) as u32;
+        let scaled = dyn_img.resize_exact(
+            PRINT_PINS,
+            target_h,
+            image::imageops::FilterType::Triangle,
+        );
+        let luma = scaled.to_luma8();
+        let n_lines = luma.height();
+
+        let mut buf: Vec<u8> = Vec::with_capacity(
+            200 + 64 + (3 + BYTES_PER_LINE) * n_lines as usize + 1,
+        );
+
+        // Invalidate + initialize.
+        buf.extend(std::iter::repeat(0u8).take(200));
+        buf.extend_from_slice(&[0x1B, 0x40]);
+
+        // Switch to raster command mode.
+        buf.extend_from_slice(&[0x1B, 0x69, 0x61, 0x01]);
+
+        // Print information command (ESC i z):
+        //   flags 0x8E = PI_KIND | PI_WIDTH | PI_LENGTH | PI_RECOVER
+        //   media_type 0x0A = continuous length tape
+        //   media_width 62 mm, media_length 0 (continuous)
+        //   raster_number = n_lines (little-endian u32)
+        //   starting page = 0, reserved = 0
+        buf.extend_from_slice(&[0x1B, 0x69, 0x7A]);
+        buf.push(0x8E);
+        buf.push(0x0A);
+        buf.push(62);
+        buf.push(0);
+        buf.extend_from_slice(&n_lines.to_le_bytes());
+        buf.push(0);
+        buf.push(0);
+
+        // Various mode: auto-cut enabled (bit 6).
+        buf.extend_from_slice(&[0x1B, 0x69, 0x4D, 0x40]);
+
+        // Cut every 1 label.
+        buf.extend_from_slice(&[0x1B, 0x69, 0x41, 0x01]);
+
+        // Compression mode = uncompressed: richiesto dal QL-800 prima del
+        // primo `g` per evitare interpretazione TIFF dei raster bytes.
+        buf.extend_from_slice(&[0x4D, 0x00]);
+
+        // Raster lines: uncompressed `g 0x00 0x5A <90 bytes>`.
+        // Pin layout: 12 zero-bits margine, 696 bit immagine, 12 zero-bits margine.
+        // Lettura del PNG da destra a sinistra: il QL-800 mappa "pin 0" sul
+        // bordo che l'utente vede come destro a etichetta espulsa, quindi
+        // serve il flip orizzontale per stampare leggibile invece che a specchio.
+        for row in 0..n_lines {
+            buf.extend_from_slice(&[0x67, 0x00, 0x5A]);
+            let mut line = [0u8; BYTES_PER_LINE];
+            for col in 0..PRINT_PINS {
+                let src_col = PRINT_PINS - 1 - col;
+                let px = luma.get_pixel(src_col, row).0[0];
+                if px < 128 {
+                    let pin = col + LEFT_MARGIN_PINS;
+                    let byte_idx = (pin / 8) as usize;
+                    let bit_pos = 7 - (pin % 8) as u8;
+                    line[byte_idx] |= 1 << bit_pos;
+                }
+            }
+            buf.extend_from_slice(&line);
+        }
+
+        // End of page: print + feed + cut.
+        buf.push(0x1A);
+
+        Ok(buf)
+    }
+
+    fn send_raw_to_printer(
+        printer_name: &str,
+        buffer: &[u8],
+        copies: u32,
+    ) -> Result<(), String> {
+        let printer_wide = to_wide(printer_name);
+        let mut h_printer: HANDLE = null_mut();
+        let ok = unsafe {
+            OpenPrinterW(
+                printer_wide.as_ptr() as *mut _,
+                &mut h_printer,
+                null_mut(),
+            )
+        };
+        if ok == 0 || h_printer.is_null() {
+            return Err(format!("OpenPrinter failed for '{}'", printer_name));
+        }
+
+        // RAII: ClosePrinter sempre, anche su early-return.
+        struct PrinterGuard(HANDLE);
+        impl Drop for PrinterGuard {
+            fn drop(&mut self) { unsafe { ClosePrinter(self.0); } }
+        }
+        let _printer_guard = PrinterGuard(h_printer);
+
+        let mut doc_name = to_wide("HACCPrint Label");
+        let mut datatype = to_wide("RAW");
+        let mut doc_info = DOC_INFO_1W {
+            pDocName:    doc_name.as_mut_ptr(),
+            pOutputFile: null_mut(),
+            pDatatype:   datatype.as_mut_ptr(),
+        };
+
+        let job_id = unsafe {
+            StartDocPrinterW(
+                h_printer,
+                1,
+                &mut doc_info as *mut _ as *mut u8,
+            )
+        };
+        if job_id == 0 {
+            return Err("StartDocPrinter failed — is the printer ready?".to_string());
+        }
+
+        // RAII: EndDocPrinter prima di ClosePrinter (drop order LIFO).
+        struct DocGuard(HANDLE);
+        impl Drop for DocGuard {
+            fn drop(&mut self) { unsafe { EndDocPrinter(self.0); } }
+        }
+        let _doc_guard = DocGuard(h_printer);
+
+        let ok = unsafe { StartPagePrinter(h_printer) };
+        if ok == 0 {
+            return Err("StartPagePrinter failed".to_string());
+        }
+
+        struct PageGuard(HANDLE);
+        impl Drop for PageGuard {
+            fn drop(&mut self) { unsafe { EndPagePrinter(self.0); } }
+        }
+        let _page_guard = PageGuard(h_printer);
+
+        // Render once, send N times — etichette identiche condividono il buffer.
+        // Lo spooler RAW è pass-through: la prima etichetta parte non appena
+        // il primo WritePrinter ha flushato verso l'USB.
+        for copy_idx in 0..copies {
+            let mut written: DWORD = 0;
+            let ok = unsafe {
+                WritePrinter(
+                    h_printer,
+                    buffer.as_ptr() as *mut _,
+                    buffer.len() as DWORD,
+                    &mut written,
+                )
+            };
+            if ok == 0 || (written as usize) != buffer.len() {
+                return Err(format!(
+                    "WritePrinter failed on copy {} ({}/{} bytes)",
+                    copy_idx + 1, written, buffer.len()
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn print_png(
         png_bytes: &[u8],
         printer_name: &str,
         copies: u32,
-        label_w_mm: f64,
+        _label_w_mm: f64,
         _label_h_mm: f64,
     ) -> Result<(), String> {
-        let img = image::load_from_memory_with_format(png_bytes, image::ImageFormat::Png)
-            .map_err(|e| format!("PNG decode error: {e}"))?
-            .to_rgba8();
-        let img_w = img.width();
-        let img_h = img.height();
-
-        let mut bgra: Vec<u8> = Vec::with_capacity((img_w * img_h * 4) as usize);
-        for px in img.pixels() {
-            bgra.push(px[2]); bgra.push(px[1]); bgra.push(px[0]); bgra.push(px[3]);
-        }
-
-        let aspect = img_h as f64 / img_w as f64;
-        let real_h_mm = label_w_mm * aspect;
-
-        let paper_w = (label_w_mm * 10.0).round() as i16;
-        let paper_h = (real_h_mm   * 10.0).round() as i16;
-
-        let mut devmode: DEVMODEW = unsafe { std::mem::zeroed() };
-        devmode.dmSize = std::mem::size_of::<DEVMODEW>() as u16;
-        devmode.dmFields = DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_ORIENTATION;
-
-        unsafe {
-            devmode.u1.s1_mut().dmPaperSize   = 256;
-            devmode.u1.s1_mut().dmPaperWidth  = paper_w;
-            devmode.u1.s1_mut().dmPaperLength = paper_h;
-            devmode.u1.s1_mut().dmOrientation = DMORIENT_PORTRAIT as i16;
-        }
-
-        let driver_wide  = to_wide("winspool");
-        let printer_wide = to_wide(printer_name);
-
-        let dc = unsafe {
-            CreateDCW(
-                driver_wide.as_ptr(),
-                printer_wide.as_ptr(),
-                std::ptr::null(),
-                &devmode as *const DEVMODEW,
-            )
-        };
-        if dc.is_null() {
-            return Err(format!("Cannot create DC for '{}'. Is the driver installed?", printer_name));
-        }
-
-        let page_w_px = unsafe { GetDeviceCaps(dc, HORZRES) };
-        let page_h_px = unsafe { GetDeviceCaps(dc, VERTRES) };
-
-        if page_w_px <= 0 || page_h_px <= 0 {
-            unsafe { DeleteDC(dc); }
-            return Err("GetDeviceCaps returned invalid dimensions.".to_string());
-        }
-
-        let dest_w = page_w_px;
-        let dest_h = page_h_px;
-
-        let mut doc_name_buf = to_wide("HACCPrint Label");
-        let doc_info = DOCINFOW {
-            cbSize:       std::mem::size_of::<DOCINFOW>() as i32,
-            lpszDocName:  doc_name_buf.as_mut_ptr(),
-            lpszOutput:   std::ptr::null_mut(),
-            lpszDatatype: std::ptr::null_mut(),
-            fwType:       0,
-        };
-
-        let bmi = BITMAPINFO {
-            bmiHeader: BITMAPINFOHEADER {
-                biSize:          std::mem::size_of::<BITMAPINFOHEADER>() as DWORD,
-                biWidth:         img_w as i32,
-                biHeight:        -(img_h as i32),
-                biPlanes:        1,
-                biBitCount:      32,
-                biCompression:   BI_RGB,
-                biSizeImage:     0,
-                biXPelsPerMeter: 0,
-                biYPelsPerMeter: 0,
-                biClrUsed:       0,
-                biClrImportant:  0,
-            },
-            bmiColors: [RGBQUAD { rgbBlue: 0, rgbGreen: 0, rgbRed: 0, rgbReserved: 0 }],
-        };
-
-        // RAII guard: garantisce DeleteDC anche su early-return / panic.
-        struct DcGuard(winapi::shared::windef::HDC);
-        impl Drop for DcGuard {
-            fn drop(&mut self) { unsafe { DeleteDC(self.0); } }
-        }
-        let _dc_guard = DcGuard(dc);
-
-        // Un solo job per N copie → niente teardown/startup spooler tra una copia e l'altra.
-        let job = unsafe { StartDocW(dc, &doc_info) };
-        if job <= 0 {
-            return Err("StartDoc failed — is the printer ready and online?".to_string());
-        }
-
-        for _ in 0..copies {
-            unsafe {
-                StartPage(dc);
-                StretchDIBits(
-                    dc,
-                    0, 0, dest_w, dest_h,
-                    0, 0, img_w as i32, img_h as i32,
-                    bgra.as_ptr() as *const _,
-                    &bmi,
-                    DIB_RGB_COLORS,
-                    SRCCOPY,
-                );
-                EndPage(dc);
-            }
-        }
-
-        unsafe { EndDoc(dc); }
-        Ok(())
+        let buffer = build_brother_raster_62mm(png_bytes)?;
+        send_raw_to_printer(printer_name, &buffer, copies.max(1))
     }
 }
 

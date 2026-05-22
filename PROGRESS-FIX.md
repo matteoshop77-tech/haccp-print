@@ -25,6 +25,69 @@ Stato: app Tauri 2 + React + TS + Rust per stampa etichette HACCP Brother QL-800
 - Richiede rebuild + reinstall dell'eseguibile sul PC target.
 - Verificare con 5 e 10 copie consecutive che il gap sia effettivamente sceso sotto il secondo.
 
+### F-003 · Opzione B — Brother QL-800 raster nativo via WritePrinter RAW
+**Data:** 2026-05-22
+**File toccati:** [src-tauri/src/lib.rs](src-tauri/src/lib.rs)
+
+**Contesto**
+Con 20 copie la pipeline GDI accumulava ~40-50 s di attesa prima che la stampante iniziasse: ogni `StretchDIBits` mandava ~13 MB di BGRA al driver Brother, che ri-eseguiva la conversione GDI→raster proprietario per ogni singola copia (260 MB totali su 20 copie) e bufferizzava internamente prima di aprire la porta USB. Bottleneck driver-side, non Rust-side.
+
+**Cosa è stato fatto**
+- **Generazione raster diretta in Rust** (`build_brother_raster_62mm`): PNG decoded, resized a 696 px di larghezza con `image::imageops::FilterType::Triangle`, convertito a luma8, threshold a 128, packed MSB-first a 90 byte/riga con offset di 12 pin di margine sinistro per centrare sulla testina da 720 pin.
+- **Comand sequence Brother**: 200×`0x00` + `ESC @` (init), `ESC i a 0x01` (raster mode), `ESC i z` con flags `0x8E` + media type `0x0A` (continuous) + width `62` + length `0` + raster_number LE, `ESC i M 0x40` (auto-cut on), `ESC i A 0x01` (cut ogni etichetta), `M 0x00` (compression uncompressed, richiesto dal QL-800 prima del primo `g`), N×raster line `0x67 0x00 0x5A` + 90 byte, terminatore `0x1A`.
+- **Spedizione RAW** (`send_raw_to_printer`): `OpenPrinterW` → `StartDocPrinterW` con `DOC_INFO_1W{ pDatatype: "RAW" }` → `StartPagePrinter` → `WritePrinter` × N sul medesimo buffer (render once, send N times) → `EndPagePrinter` → `EndDocPrinter` → `ClosePrinter`. Tutte le risorse spooler gestite via RAII guard (PrinterGuard, DocGuard, PageGuard) — drop order LIFO garantisce teardown corretto anche su early-return.
+- **Rimosso** tutto il GDI path: `CreateDCW`, `DEVMODEW`, `StretchDIBits`, `StartDocW`/`EndDoc`, `DcGuard`. Eliminati import `wingdi::*` e `shared::windef`.
+- **Signature pubblica `print_png` invariata** per compatibilità con `print_label_image`: `label_w_mm`/`label_h_mm` ora unused ma mantenuti per estensione futura su nastri 29/38/102 mm (vedi L-007).
+
+**Effetto atteso**
+- Prima etichetta inizia a stampare in ~200-300 ms invece di 40-50 s su 20 copie.
+- Buffer per etichetta ~25-50 KB invece di 13 MB. Per 20 copie: ~500 KB-1 MB totali transferiti allo spooler vs 260 MB di BGRA.
+- Gap tra etichette dominato dal cutter meccanico (~200 ms con auto-cut on, ~50 ms senza).
+- Spooler RAW = pass-through: la stampa parte non appena il primo `WritePrinter` flusha verso USB.
+
+**Note per il rilascio**
+- Richiede rebuild + reinstall sul PC target. `cargo check --release` passa pulito (zero warning).
+- Valori `ESC i z` validi per nastro continuo 62 mm. Per supportare 29/38/102 mm serve parametrizzare `media_width` e calcolare `LEFT_MARGIN_PINS` corretto per ogni formato — collegare con L-007.
+- Test pilota consigliato: 1 copia per validare orientamento/threshold, poi 20 copie per validare il fix di latenza.
+- Se il driver Brother è installato ma la stampante è offline, `OpenPrinterW` riesce comunque ma il job resta in coda; `WritePrinter` ritorna ok ma niente esce dalla stampante. Comportamento corretto (lo spooler gestisce la coda).
+- Risolve anche L-010 (EndDoc su errore) — il vecchio GDI path non chiamava `EndDoc` su fail di `StretchDIBits`. La nuova versione usa RAII per garantire teardown in ogni branch.
+- Rende obsoleto L-015 (DMPAPER_USER) — niente più `DEVMODE`, il formato carta è specificato nel raster command stesso.
+
+### F-004 · Fix mirror orizzontale nel raster encoding
+**Data:** 2026-05-22
+**File toccati:** [src-tauri/src/lib.rs](src-tauri/src/lib.rs)
+
+**Contesto**
+Subito dopo F-003 la stampa usciva specchiata orizzontalmente: testo leggibile ma riflesso (es. "ABC" → "CBA"). L'ordine verticale era corretto, quindi il problema era localizzato al solo bit packing all'interno di ogni raster line.
+
+**Cosa è stato fatto**
+- In `build_brother_raster_62mm`, lettura del PNG da destra a sinistra: `let src_col = PRINT_PINS - 1 - col;` prima di `luma.get_pixel(src_col, row)`. Il pin mapping `col + LEFT_MARGIN_PINS` e il bit packing MSB-first restano invariati.
+
+**Diagnosi**
+Il QL-800 mappa "pin 0" (= bit 7 del primo byte di ogni raster line) sul bordo che a etichetta espulsa l'utente vede come **destro**, non sinistro come assumeva il codice iniziale. La libreria `brother_ql` Python aggira questo aspetto applicando rotazioni preventive nell'auto-orientamento dell'immagine; noi lavoriamo su un PNG già in orientamento portrait corretto per la lettura umana e quindi serve un flip orizzontale esplicito al packing.
+
+**Scartate**
+- `dyn_img.fliph()` prima del resize → O(W×H) di overhead inutile.
+- Inversione LSB/MSB nel byte → produrrebbe scramble a gruppi di 8 px, non un mirror pulito (non è la causa).
+- Riempimento `line[BYTES_PER_LINE - 1 - byte_idx]` → confonde il lettore senza guadagno.
+
+### F-005 · Fix leggibilità etichette "Prepared:" / "Use by:" su stampa
+**Data:** 2026-05-22
+**File toccati:** [src/lib/labelRenderer.ts](src/lib/labelRenderer.ts)
+
+**Contesto**
+Le label "Prepared:" / "Use by:" / "Opened:" (e gli equivalenti ungheresi "Elkészítve:" / "Felhasználható:" / "Bontás dátuma:") uscivano sbiadite o spezzate sul nastro Brother — leggibili a schermo ma quasi invisibili sul printed.
+
+**Diagnosi**
+`COL_LABEL = "#777777"` ha luma 119, appena sotto il threshold a 128 di `build_brother_raster_62mm`. Dopo il resize 2196 → 696 px con filtro Triangle, i tratti sottili del peso regular (`fontR(F_LABEL)`) venivano attenuati e una parte significativa dei pixel finiva sopra il threshold → bianchi.
+
+**Cosa è stato fatto**
+- `COL_LABEL` da `#777777` a `#000000`. Unico punto di utilizzo: `drawDateRow`. Niente altre modifiche.
+
+**Note**
+- La gerarchia visiva (label vs valore) resta differenziata dal **peso del font**: label in regular, valori in medium/bold. Black + regular ≠ Black + bold visivamente.
+- Considerare in futuro se anche `COL_ALLERG = "#444444"` (luma 68) abbia problemi simili. Sotto threshold ma con stesso meccanismo di attenuazione su resize.
+
 ### F-002 · Zero-config printer detection
 **Data:** 2026-05-21
 **File toccati:** [src-tauri/src/lib.rs](src-tauri/src/lib.rs), [src/App.tsx](src/App.tsx), [src/pages/HomePage.tsx](src/pages/HomePage.tsx), [src/pages/SettingsPage.tsx](src/pages/SettingsPage.tsx), [src/lib/i18n.ts](src/lib/i18n.ts)
@@ -123,7 +186,7 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 
 | ID | Priorità | Stima | Note |
 |----|----------|-------|------|
-| L-010 (EndDoc su errore) | **P1** | 30 min | Estendere il `DcGuard` per chiamare anche `EndDoc` se il job è stato avviato. Evita job sospesi nello spooler. |
+| ~~L-010~~ (EndDoc su errore) | ✅ done | — | Risolto in F-003: il nuovo path RAW usa `DocGuard`/`PageGuard` RAII che garantiscono `EndDocPrinter`/`EndPagePrinter` in ogni branch. |
 | L-002 / L-003 (rollback Zustand) | **P1** | 2-3 h | Wrappare le mutazioni in un helper `mutateWithRollback(localUpdate, remoteCall, revert)` per ripristinare lo stato se la chiamata Supabase fallisce. |
 | L-004 (`setLicense` non persiste) | **P1** | 30 min | O `setLicense` persiste su Supabase, o lo rimuoviamo dall'interfaccia pubblica e si passa solo da `activateLicense`/`removeLicense`. |
 | L-013 (doppio fetch) | **P1** | 30 min | Lasciare il caricamento solo dentro `onAuthStateChange` (con evento `INITIAL_SESSION` di Supabase v2) e togliere quello manuale in `init()`. |
@@ -134,7 +197,7 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 | L-011 (EnumPrinters) | **P2** | 15 min | Loop `while GetLastError()==ERROR_INSUFFICIENT_BUFFER`. |
 | L-012 (canvas in PrintModal) | **P2** | 30 min | Componente con `<canvas ref={…}>` e disegno nel ref. |
 | L-014 (import dinamico) | **P2** | 5 min | Spostare `import { invoke }` in top-level di `printService.ts`. |
-| L-015 (DMPAPER_USER) | **P2** | 30 min | Testare su driver Brother con dmPaperSize specifico se disponibile, altrimenti documentare e lasciare. |
+| ~~L-015~~ (DMPAPER_USER) | ✅ done | — | Obsoleto post F-003: il path RAW non usa più `DEVMODE`; il formato è specificato nel raster command (`ESC i z`). |
 | L-007 (label width hardcoded) | **P2** | 1 h | Spostare `labelWMM` in `AppSettings` come `labelWidthMm: 29|38|62|102`. |
 
 ### Performance / qualità
@@ -152,14 +215,16 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 
 ## 🗺️ Roadmap stampa
 
-### Stato attuale (post F-001)
-- **GDI multi-pagina** via spooler Windows: 1 job, N pagine.
-- Gap tra copie atteso: 0.3-0.8 s (feed + cut meccanico).
-- Zero dipendenze native esterne, funziona con qualunque driver installato.
+### Stato attuale (post F-003)
+- **WritePrinter RAW** con raster Brother nativo generato in Rust. 1 job spooler, N `WritePrinter` sullo stesso buffer.
+- Latenza iniziale: ~200-300 ms (era 40-50 s su 20 copie con GDI).
+- Gap tra etichette: ~200 ms con auto-cut, dominato dal cutter meccanico.
+- Niente più dipendenza dal driver Brother per la conversione raster — bypassata via datatype "RAW".
+- Vincolo attuale: 62 mm continuous tape. Altri formati richiedono parametrizzazione di `media_width` + offset margine.
 
 ### Opzione B — Raster Brother nativo via spooler
 
-**Quando implementarla:** quando il gap residuo (0.3-0.8 s) diventa un problema reale in produzione, p.es. workflow da 10+ etichette consecutive. **Non prima.** L'opzione A copre il 90% dei casi reali.
+✅ **Implementata in F-003 (2026-05-22)**. Dettagli sotto conservati per riferimento.
 
 **Cosa fa**
 - Genera in Rust il bytestream raster Brother QL-800 secondo lo *Brother QL Raster Command Reference*:

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { invoke }       from "@tauri-apps/api/core";
 import { AppShell }     from "@/components/layout/AppShell";
 import HomePage         from "@/pages/HomePage";
 import LabelsPage       from "@/pages/LabelsPage";
@@ -43,7 +44,6 @@ export default function App() {
       const { settings, updateSettings } = useStore.getState();
       if (settings.printerName) return;
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
         const found = await invoke<string | null>("find_brother_printer");
         if (mounted && found) updateSettings({ printerName: found });
       } catch (e) {
