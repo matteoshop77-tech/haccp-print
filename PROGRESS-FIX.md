@@ -112,6 +112,59 @@ Le label "Prepared:" / "Use by:" / "Opened:" (e gli equivalenti ungheresi "Elké
 - Se in futuro l'utente avesse più stampanti Brother (es. QL-800 + QL-820), viene preferita la QL-800 grazie al match prioritario; può comunque cambiarla manualmente da Settings.
 - Risolve in anticipo parte del lavoro previsto per S-004 (capabilities): la nuova invoke `find_brother_printer` andrà aggiunta all'allowlist se/quando si stringono le capabilities.
 
+### F-006 · S-005 firma updater Tauri 2
+**Data:** 2026-05-22 (commit `a24122b` + `2b467f0`)
+**File toccati:** [src-tauri/tauri.conf.json](src-tauri/tauri.conf.json), [.gitignore](/.gitignore), [build-release.ps1](build-release.ps1)
+
+- Generata keypair ed25519 via `tauri signer generate`, salvata in `$HOME\.tauri\haccprint.key` (cifrata con password).
+- Pubkey base64 in `plugins.updater.pubkey` di `tauri.conf.json`. Da ora i client embeddano la pubkey e accettano solo update firmati con la corrispondente private key.
+- `.gitignore` esteso a `*.key` e `*.key.pub`. Verificato che nessuna chiave sia mai stata committata.
+- Aggiunto [build-release.ps1](build-release.ps1) che setta `TAURI_SIGNING_PRIVATE_KEY` + `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (Read-Host -AsSecureString) e lancia `npm run tauri build`. `try/finally` pulisce le env var anche su Ctrl+C.
+
+**Note**
+- Per il primo rilascio firmato: caricare installer + `.sig` sulla GitHub Release, generare `latest.json` con `signature` inline.
+- Backup di private key + password **non negoziabile**: perdere entrambe = niente più update per i clienti esistenti.
+- Non risolve i warning SmartScreen Windows ("Unknown Publisher") — quello richiede Authenticode separato.
+
+### F-007 · L-013 + L-001 fetch unificato in onAuthStateChange
+**Data:** 2026-05-22 (commit `24646e1`)
+**File toccati:** [src/App.tsx](src/App.tsx)
+
+- Rimossa `init()` (~30 righe) e flag `initDone`. La gestione auth è ora interamente reattiva su `supabase.auth.onAuthStateChange`.
+- `INITIAL_SESSION` (Supabase v2: fired all'avvio con sessione ripristinata o `null`) condivide lo stesso branch di `SIGNED_IN`, eliminando il doppio fetch.
+- Effetto collaterale: anche **L-001** (`initDone` closure non protetta da StrictMode) è risolto, perché `initDone` non esiste più.
+
+### F-008 · L-002 + L-003 rollback ottimistico Zustand
+**Data:** 2026-05-22 (commit `9a379cc`)
+**File toccati:** [src/store/useStore.ts](src/store/useStore.ts)
+
+- Pattern uniforme applicato a 7 funzioni (`updateSettings`, `addTemplate`, `updateTemplate`, `deleteTemplate`, `pinTemplate`, `addCategory`, `addPrintJob`):
+  1. Snapshot della slice rilevante prima del `set` ottimistico.
+  2. Se la chiamata Supabase ritorna `error`: log + ripristino dello snapshot.
+- `addPrintJob` cattura sia `printJobs` che `templates` (per il `printCount` incrementato).
+- Limite noto: in caso di race fra due mutazioni sulla stessa slice di cui una fallisce, il rollback riporta lo stato pre-prima sovrascrivendo anche la seconda. Accettabile per app single-user low-write.
+
+### F-009 · P-006 config Supabase in env vars
+**Data:** 2026-05-22 (commit `d99c0f6`)
+**File toccati:** [src/lib/supabaseClient.ts](src/lib/supabaseClient.ts), `.env`, [.env.example](/.env.example), [src/vite-env.d.ts](src/vite-env.d.ts)
+
+- URL e anon key letti da `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`.
+- Throw esplicito all'init se mancanti, messaggio rimanda a `.env.example`.
+- `.env.example` (committato) per documentare i nomi delle var. `.env` è gitignored.
+- `src/vite-env.d.ts` aggiunto: prima non esisteva, necessario per il typing di `ImportMetaEnv`.
+
+**Nota sicurezza**: l'anon key resta visibile nel bundle prodotto (Vite la inlinea — il prefisso `VITE_` la rende pubblica per design). Il beneficio è la separazione config/sorgente e la possibilità di rotazione senza patch del codice. La protezione vera contro accessi cross-tenant sono le RLS policy Supabase (vedi **S-001**, ancora aperto).
+
+### F-010 · Batch P2 cleanup (P-002, P-003, L-005, L-014, S-004)
+**Data:** 2026-05-22
+**File toccati:** [src/components/UpdateChecker.tsx](src/components/UpdateChecker.tsx), [src/lib/i18n.ts](src/lib/i18n.ts), [src/pages/HomePage.tsx](src/pages/HomePage.tsx), [src-tauri/capabilities/default.json](src-tauri/capabilities/default.json), [README.md](README.md), `bridge/` (rimossa)
+
+- **P-002 (i18n updater)**: 6 chiavi `updater_*` aggiunte a `i18n.ts` (en + hu). `UpdateChecker.tsx` legge `lang` da `useStore` e usa `t(...)` invece dei literal italiani precedenti ("Aggiornamento disponibile", "Dopo", "Aggiorna ora", ecc.).
+- **P-003 (bridge Python)**: rimosso `bridge/app.py` (script Python `brother_ql` + `pyusb`, non più referenziato a runtime dopo F-003). Rimossa la cartella `bridge/` (vuota dopo). Aggiornato `README.md` per togliere il riferimento obsoleto al "Python print bridge on port 8013".
+- **L-005 (riga morta)**: rimossa `templates.find((t) => t.id === job.templateId);` da `HomePage.tsx` — espressione con risultato scartato, residuo di refactor. Side-effect-free, delete sicura.
+- **L-014 (import dinamico Tauri)**: già risolto a inizio sessione (incluso in commit `afc56c7`), `await import("@tauri-apps/api/core")` sostituito con import statico in `printService.ts`, `SettingsPage.tsx`, `App.tsx`. Catalogato qui per chiusura del ticket.
+- **S-004 (capabilities)**: aggiunto `description` esteso in `default.json` che documenta i custom invoke esposti (`print_label_image`, `list_printers`, `find_brother_printer`). **In Tauri 2 non esiste sintassi di per-command allowlist per non-plugin invoke**, quindi questo fix è documentativo — la formulazione originale del ticket era basata sul modello Tauri 1. Il tightening reale (rimuovere `core:default` granulare) richiede audit dedicato — fuori da questo P2.
+
 ---
 
 ## 📋 Audit completo (2026-05-21)
@@ -178,25 +231,25 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 |----|----------|-------|------|
 | S-001 (RLS Supabase) | **P0** | 30 min | Verifica + creazione policy `auth.uid()=user_id` su 5 tabelle. Bloccante per privacy multi-tenant. |
 | S-002 (bypass licenza) | **P0** | 4-6 h | Edge Function Supabase che fa proxy verso Lemon Squeezy con API key server-side. La key Pro viene scritta solo via Edge Function autenticata. |
-| S-005 (updater non firmato) | **P0** | 1 h | `tauri signer generate` → mettere pubkey in `tauri.conf.json`, firmare i bundle in CI. Prima del prossimo rilascio. |
+| ~~S-005~~ (updater non firmato) | ✅ done | — | Risolto in F-006: pubkey ed25519 embedded in `tauri.conf.json`, build firmati via `build-release.ps1`. |
 | S-003 (deviceId debole) | **P1** | 2 h | Su Tauri usare un identificatore stabile (es. `machine-uid` crate o GUID generato e salvato in AppData) invece di hash userAgent. |
-| S-004 (capabilities) | **P2** | 15 min | Aggiungere allowlist esplicito `print_label_image`, `list_printers`. Cosmetico oggi, importante se si stringono le capabilities domani. |
+| ~~S-004~~ (capabilities) | ✅ done | — | Documentato in F-010. Tauri 2 non ha sintassi di per-command allowlist per non-plugin invoke; il fix originale del ticket era basato su modello Tauri 1. |
 
 ### Bug logici
 
 | ID | Priorità | Stima | Note |
 |----|----------|-------|------|
 | ~~L-010~~ (EndDoc su errore) | ✅ done | — | Risolto in F-003: il nuovo path RAW usa `DocGuard`/`PageGuard` RAII che garantiscono `EndDocPrinter`/`EndPagePrinter` in ogni branch. |
-| L-002 / L-003 (rollback Zustand) | **P1** | 2-3 h | Wrappare le mutazioni in un helper `mutateWithRollback(localUpdate, remoteCall, revert)` per ripristinare lo stato se la chiamata Supabase fallisce. |
+| ~~L-002 / L-003~~ (rollback Zustand) | ✅ done | — | Risolto in F-008: snapshot+restore inline per le 7 mutazioni ottimistiche di useStore. |
 | L-004 (`setLicense` non persiste) | **P1** | 30 min | O `setLicense` persiste su Supabase, o lo rimuoviamo dall'interfaccia pubblica e si passa solo da `activateLicense`/`removeLicense`. |
-| L-013 (doppio fetch) | **P1** | 30 min | Lasciare il caricamento solo dentro `onAuthStateChange` (con evento `INITIAL_SESSION` di Supabase v2) e togliere quello manuale in `init()`. |
-| L-001 (initDone closure) | **P2** | 15 min | Sostituire con `useRef<boolean>`. |
-| L-005 (riga morta HomePage) | **P2** | 1 min | Eliminare riga `templates.find(...)`. |
+| ~~L-013~~ (doppio fetch) | ✅ done | — | Risolto in F-007: rimossa `init()` manuale, tutto su `onAuthStateChange` con `INITIAL_SESSION`. |
+| ~~L-001~~ (initDone closure) | ✅ done | — | Risolto in F-007 come effetto collaterale di L-013 (rimosso `initDone` insieme a `init()`). |
+| ~~L-005~~ (riga morta HomePage) | ✅ done | — | Risolto in F-010: riga `templates.find(...)` eliminata. |
 | L-006 (tipi Supabase) | **P2** | 1 h | `supabase gen types typescript --project-id <id> > src/lib/database.types.ts` + sostituire `as any`. |
 | L-008 / L-009 (calcHeight) | **P2** | 1 h | Funzione `measure(ctx, …)` riusabile, eliminare canvas usa-e-getta, allineare altezza calcolata a quella renderizzata. |
 | L-011 (EnumPrinters) | **P2** | 15 min | Loop `while GetLastError()==ERROR_INSUFFICIENT_BUFFER`. |
 | L-012 (canvas in PrintModal) | **P2** | 30 min | Componente con `<canvas ref={…}>` e disegno nel ref. |
-| L-014 (import dinamico) | **P2** | 5 min | Spostare `import { invoke }` in top-level di `printService.ts`. |
+| ~~L-014~~ (import dinamico) | ✅ done | — | Risolto in F-010: import statico di `@tauri-apps/api/core` in `printService.ts`, `SettingsPage.tsx`, `App.tsx`. |
 | ~~L-015~~ (DMPAPER_USER) | ✅ done | — | Obsoleto post F-003: il path RAW non usa più `DEVMODE`; il formato è specificato nel raster command (`ESC i z`). |
 | L-007 (label width hardcoded) | **P2** | 1 h | Spostare `labelWMM` in `AppSettings` come `labelWidthMm: 29|38|62|102`. |
 
@@ -205,9 +258,9 @@ Priorità in tre livelli: **P0** = fai subito, **P1** = entro 2-4 settimane, **P
 | ID | Priorità | Stima | Note |
 |----|----------|-------|------|
 | P-005 (main.rs) | **P2** | 5 min | Niente di urgente. |
-| P-006 (env Supabase) | **P1** | 30 min | `.env` con `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`, leggere via `import.meta.env`. |
-| P-002 (i18n updater) | **P1** | 15 min | Aggiungere chiavi `updater_*` a `src/lib/i18n.ts` e usarle. |
-| P-003 (bridge Python) | **P2** | 1 min | Eliminare `bridge/app.py` (e cartella se vuota). |
+| ~~P-006~~ (env Supabase) | ✅ done | — | Risolto in F-009: `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` via `import.meta.env`, `.env.example` committato, `vite-env.d.ts` per il typing. |
+| ~~P-002~~ (i18n updater) | ✅ done | — | Risolto in F-010: chiavi `updater_*` (en + hu), UpdateChecker.tsx ora usa `t(...)`. |
+| ~~P-003~~ (bridge Python) | ✅ done | — | Risolto in F-010: `bridge/app.py` + cartella rimossi, riferimento in README aggiornato. |
 | P-004 (tipi any in store) | **P2** | 1 h | Da fare insieme a L-006. |
 | P-001 (pipeline PNG→base64) | **P2** | 1 giorno | Solo se le metriche mostrano lentezza percepita. Vedi anche roadmap stampa. |
 

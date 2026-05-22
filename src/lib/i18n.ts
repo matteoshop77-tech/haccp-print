@@ -159,6 +159,14 @@ const translations = {
     printer_ready:        "Ready",
     printer_no_driver:    "Driver not detected",
     printer_no_brother:   "No Brother printer found — install the QL-800 driver",
+
+    /* Updater */
+    updater_title:       "Update available",
+    updater_version:     "Version",
+    updater_description: "A new version of HACCPrint is available. The update is automatic and takes only a few seconds.",
+    updater_later:       "Later",
+    updater_update_now:  "Update now",
+    updater_installing:  "Installing…",
   },
 
   hu: {
@@ -308,6 +316,13 @@ const translations = {
     printer_ready:        "Kész",
     printer_no_driver:    "Illesztőprogram nem található",
     printer_no_brother:   "Nincs Brother nyomtató — telepítsd a QL-800 illesztőprogramot",
+
+    updater_title:       "Frissítés elérhető",
+    updater_version:     "Verzió",
+    updater_description: "Új HACCPrint verzió érhető el. A frissítés automatikus és csak néhány másodpercet vesz igénybe.",
+    updater_later:       "Később",
+    updater_update_now:  "Frissítés most",
+    updater_installing:  "Telepítés…",
   },
 } as const;
 

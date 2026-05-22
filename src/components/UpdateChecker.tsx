@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { useStore } from "@/store/useStore";
+import { t } from "@/lib/i18n";
 
 export default function UpdateChecker() {
+  const lang = useStore((s) => s.settings.language);
   const [available, setAvailable] = useState(false);
   const [version, setVersion]     = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -70,18 +73,18 @@ export default function UpdateChecker() {
         </div>
         <div>
           <div style={{ fontSize: "13px", fontWeight: 600, color: "#1A1D1B" }}>
-            Aggiornamento disponibile
+            {t("updater_title", lang)}
           </div>
           {version && (
             <div style={{ fontSize: "11px", color: "#8A9490", marginTop: "1px" }}>
-              Versione {version}
+              {t("updater_version", lang)} {version}
             </div>
           )}
         </div>
       </div>
 
       <p style={{ fontSize: "12px", color: "#4A5250", margin: 0, lineHeight: 1.5 }}>
-        È disponibile una nuova versione di HACCPrint. L'aggiornamento è automatico e richiede solo qualche secondo.
+        {t("updater_description", lang)}
       </p>
 
       <div style={{ display: "flex", gap: "8px" }}>
@@ -95,7 +98,7 @@ export default function UpdateChecker() {
             cursor: "pointer",
           }}
         >
-          Dopo
+          {t("updater_later", lang)}
         </button>
         <button
           onClick={handleUpdate}
@@ -117,10 +120,10 @@ export default function UpdateChecker() {
                 borderTopColor: "white",
                 animation: "spin 0.7s linear infinite",
               }} />
-              Installazione…
+              {t("updater_installing", lang)}
             </>
           ) : (
-            "Aggiorna ora"
+            t("updater_update_now", lang)
           )}
         </button>
       </div>

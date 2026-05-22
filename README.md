@@ -13,8 +13,8 @@ npm run dev
 ```
 
 Open http://localhost:1420 in your browser.
-The app will try to reach the Python print bridge on port 8013.
-For UI development you don't need the printer at all.
+For UI development you don't need the printer at all — printing
+invokes are only available in the desktop build (Tauri).
 
 ---
 

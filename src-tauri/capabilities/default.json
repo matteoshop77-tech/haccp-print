@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capabilities",
+  "description": "HACCPrint main window. Tauri 2 espone implicitamente i comandi custom registrati in invoke_handler (print_label_image, list_printers, find_brother_printer) — non hanno sintassi di per-command allowlist a meno di essere migrati a un plugin. Le permissions sotto coprono i core/plugin invoke effettivamente usati dall'app.",
   "platforms": ["linux", "macOS", "windows"],
   "windows": ["main"],
   "permissions": [
