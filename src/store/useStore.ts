@@ -164,6 +164,7 @@ export const useStore = create<AppStore>()((set, get) => ({
   },
 
   updateSettings: (partial) => {
+    const previousSettings = get().settings;
     set((s) => ({ settings: { ...s.settings, ...partial } }));
     const { userId, settings } = get();
     if (!userId) return;
@@ -179,12 +180,15 @@ export const useStore = create<AppStore>()((set, get) => ({
       haccp_log_enabled:     merged.haccpLogEnabled,
       updated_at:            new Date().toISOString(),
     }).then(({ error }: SupabaseError) => {
-      if (error) console.error("updateSettings error:", error);
+      if (error) {
+        console.error("updateSettings failed, rolling back:", error);
+        set({ settings: previousSettings });
+      }
     });
   },
 
   addTemplate: (tmpl) => {
-    const { userId } = get();
+    const { userId, templates: previousTemplates } = get();
     console.log("addTemplate called, userId:", userId);
     if (!userId) return;
     const now = new Date().toISOString();
@@ -211,11 +215,15 @@ export const useStore = create<AppStore>()((set, get) => ({
       updated_at:      now,
     }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("templates insert result:", { data, error });
+      if (error) {
+        console.error("addTemplate failed, rolling back:", error);
+        set({ templates: previousTemplates });
+      }
     });
   },
 
   updateTemplate: (id, partial) => {
-    const { userId } = get();
+    const { userId, templates: previousTemplates } = get();
     const now = new Date().toISOString();
     set((s) => ({
       templates: s.templates.map((t) =>
@@ -236,23 +244,29 @@ export const useStore = create<AppStore>()((set, get) => ({
       print_count:     updated.printCount,
       updated_at:      now,
     }).eq("id", id).eq("user_id", userId ?? "").then(({ error }: SupabaseError) => {
-      if (error) console.error("updateTemplate error:", error);
+      if (error) {
+        console.error("updateTemplate failed, rolling back:", error);
+        set({ templates: previousTemplates });
+      }
     });
   },
 
   deleteTemplate: (id) => {
-    const { userId } = get();
+    const { userId, templates: previousTemplates } = get();
     set((s) => ({ templates: s.templates.filter((t) => t.id !== id) }));
     supabase.from("templates").delete()
       .eq("id", id)
       .eq("user_id", userId ?? "")
       .then(({ error }: SupabaseError) => {
-        if (error) console.error("deleteTemplate error:", error);
+        if (error) {
+          console.error("deleteTemplate failed, rolling back:", error);
+          set({ templates: previousTemplates });
+        }
       });
   },
 
   pinTemplate: (id, pinned) => {
-    const { userId } = get();
+    const { userId, templates: previousTemplates } = get();
     set((s) => ({
       templates: s.templates.map((t) => (t.id === id ? { ...t, pinned } : t)),
     }));
@@ -262,13 +276,17 @@ export const useStore = create<AppStore>()((set, get) => ({
       .eq("id", id)
       .eq("user_id", userId ?? "")
       .then(({ error }: SupabaseError) => {
-        if (error) console.error("pinTemplate error:", error);
-        else console.log("pinTemplate success — id:", id, "pinned:", pinned);
+        if (error) {
+          console.error("pinTemplate failed, rolling back:", error);
+          set({ templates: previousTemplates });
+        } else {
+          console.log("pinTemplate success — id:", id, "pinned:", pinned);
+        }
       });
   },
 
   addPrintJob: (job) => {
-    const { userId } = get();
+    const { userId, printJobs: previousPrintJobs, templates: previousTemplates } = get();
     if (!userId) return;
     const id  = crypto.randomUUID();
     const now = new Date().toISOString();
@@ -294,6 +312,10 @@ export const useStore = create<AppStore>()((set, get) => ({
       operator_name: job.operatorName ?? null,
     }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("print_jobs insert result:", { data, error });
+      if (error) {
+        console.error("addPrintJob failed, rolling back:", error);
+        set({ printJobs: previousPrintJobs, templates: previousTemplates });
+      }
     });
   },
 
@@ -315,17 +337,21 @@ export const useStore = create<AppStore>()((set, get) => ({
   },
 
   addCategory: (name) => {
-    const { userId } = get();
+    const { userId, categories: previousCategories } = get();
     console.log("addCategory called, userId:", userId);
     if (!userId) return;
     const trimmed = name.trim();
-    if (get().categories.includes(trimmed)) return;
+    if (previousCategories.includes(trimmed)) return;
     set((s) => ({ categories: [...s.categories, trimmed] }));
     supabase.from("categories").insert({
       user_id: userId,
       name:    trimmed,
     }).then(({ data, error }: SupabaseResult<unknown>) => {
       console.log("categories insert result:", { data, error });
+      if (error) {
+        console.error("addCategory failed, rolling back:", error);
+        set({ categories: previousCategories });
+      }
     });
   },
 
