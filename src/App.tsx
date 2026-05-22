@@ -20,7 +20,6 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    let initDone = false;
 
     async function loadAccountData(userId: string) {
       try {
@@ -51,49 +50,22 @@ export default function App() {
       }
     }
 
-    async function init() {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-
-        if (error) {
-          console.error("getSession error:", error);
-          await supabase.auth.signOut();
-          if (mounted) clearAuth();
-          return;
-        }
-
-        const session = data.session;
-
-        if (session?.user) {
-          if (mounted) setAuth(session.user, session);
-          await Promise.allSettled([
-            loadAccountData(session.user.id),
-            loadFromCloud(session.user.id),
-          ]);
-          await autoPickPrinterIfMissing();
-        }
-      } catch (e) {
-        console.error("init error:", e);
-        if (mounted) clearAuth();
-      } finally {
-        initDone = true;
-        if (mounted) setChecking(false);
-      }
-    }
-
-    init();
-
+    // Single source of truth per il caricamento utente: INITIAL_SESSION
+    // (sessione ripristinata all'avvio) e SIGNED_IN (login fresco) usano
+    // lo stesso path, così loadFromCloud parte una volta sola per login.
     const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!initDone) return;
       if (!mounted) return;
 
-      if (event === "SIGNED_IN" && session?.user) {
+      if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session?.user) {
         setAuth(session.user, session);
         await Promise.allSettled([
           loadAccountData(session.user.id),
           loadFromCloud(session.user.id),
         ]);
         await autoPickPrinterIfMissing();
+        setChecking(false);
+      } else if (event === "INITIAL_SESSION") {
+        // Nessuna sessione all'avvio → AuthPage.
         setChecking(false);
       } else if (event === "SIGNED_OUT") {
         resetStore();
