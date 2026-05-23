@@ -133,6 +133,7 @@ Le label "Prepared:" / "Use by:" / "Opened:" (e gli equivalenti ungheresi "Elké
 - Rimossa `init()` (~30 righe) e flag `initDone`. La gestione auth è ora interamente reattiva su `supabase.auth.onAuthStateChange`.
 - `INITIAL_SESSION` (Supabase v2: fired all'avvio con sessione ripristinata o `null`) condivide lo stesso branch di `SIGNED_IN`, eliminando il doppio fetch.
 - Effetto collaterale: anche **L-001** (`initDone` closure non protetta da StrictMode) è risolto, perché `initDone` non esiste più.
+- **Regressione introdotta**: il caricamento dati awaitato dentro al callback ha causato deadlock col lock auth di GoTrueClient — il callback awaita le query, le query richiedono il lock già tenuto dal callback stesso → fetch mai inviato, spinner infinito. Risolto in **F-012** (2026-05-23, commit `cae959b`) spostando il caricamento in `useEffect` separato basato su `user?.id`.
 
 ### F-008 · L-002 + L-003 rollback ottimistico Zustand
 **Data:** 2026-05-22 (commit `9a379cc`)
@@ -181,6 +182,24 @@ Le label "Prepared:" / "Use by:" / "Opened:" (e gli equivalenti ungheresi "Elké
 - **L-012 (canvas React-controlled)**: estratto `drawLabelOnCanvas(canvas, template, preparedDate, lang)` da `labelRenderer.ts`. `renderLabelToCanvas` esistente ora è un thin wrapper (`document.createElement("canvas") + drawLabelOnCanvas`), backward-compatible con `renderLabelToPNG` chiamato da `printService.ts`. `LabelPreview` in `PrintModal.tsx` riscritto: ora ha `<canvas ref={canvasRef} />` JSX e in `useEffect` chiama `drawLabelOnCanvas(canvasRef.current, ...)` + style scaling. Eliminato il pattern `innerHTML="" + appendChild` (anti-pattern React: ogni re-render distruggeva/ricreava il DOM child).
   - **Verifica visiva consigliata**: stampare 1 etichetta prima e dopo per confermare che il PNG generato sia bit-per-bit identico (la pipeline raster non è cambiata, solo il container in cui il canvas vive).
 
+### F-012 · L-016 deadlock loadFromCloud (lock auth GoTrueClient)
+**Data:** 2026-05-23 (commit `cae959b`)
+**File toccati:** [src/App.tsx](src/App.tsx), [src/store/useStore.ts](src/store/useStore.ts)
+
+**Diagnosi**
+`loadFromCloud` era awaitato dentro il callback di `supabase.auth.onAuthStateChange`. Il callback gira mentre il lock interno di GoTrueClient (`navigator.locks`, storageKey `haccprint-auth`) è tenuto. Ogni `supabase.from(...).select(...)` chiama internamente `auth.getSession()` per allegare l'header `Authorization`, e `getSession()` deve acquisire **lo stesso lock** → deadlock. Sintomo: log `"loadFromCloud called with userId: ..."` in console, **zero chiamate verso supabase.co** nella Network tab (il fetch non viene mai inviato), `Promise.allSettled` non si risolve mai, `setChecking(false)` mai raggiunto → spinner infinito.
+
+**Cosa è stato fatto**
+- **App.tsx**: callback `onAuthStateChange` reso **sincrono** — fa solo `setAuth` / `resetStore` / `clearAuth` / `setChecking(false)`. Niente più `await` su Supabase dentro al callback.
+- **App.tsx**: caricamento dati (`loadAccountData`, `loadFromCloud`, `autoPickPrinterIfMissing`) spostato in un `useEffect` separato con dep `[user?.id]`, eseguito quindi fuori dal lock. `user?.id` (non `user`) come dep per evitare doppio fetch su `setAuth` ripetuti con stessa identità (es. `TOKEN_REFRESHED`).
+- **useStore.ts**: difesa in profondità — `Promise.race` fra `Promise.allSettled` delle 5 query e un timeout di 10s. Il `catch` esistente cattura l'eventuale timeout e setta `loaded: true`, sbloccando lo store.
+- **App.tsx**: spinner gated su `checking || (user && !loaded)`. Disaccoppia il blocco render dal completamento di `loadFromCloud`: `loaded` viene settato sempre (successo, errore, timeout), quindi il gate si chiude in al più 10 secondi anche nello scenario peggiore.
+
+**Note**
+- **Bug introdotto dal commit `24646e1` (entry F-007)** quando il caricamento dati è stato consolidato dentro `onAuthStateChange`. Il pattern pre-F-007 (useEffect separato) non aveva il problema; F-012 lo ripristina mantenendo la deduplicazione del fetch via `user?.id` come dep.
+- Supabase documenta esplicitamente: *"Avoid making any async Supabase calls inside the [onAuthStateChange] callback. Wrap them in `setTimeout(..., 0)` to break out of the lock context."* Lo `useEffect` separato è equivalente e più pulito del `setTimeout(0)`.
+- Verifica manuale post-fix: app carica, dati appaiono, nessuna regressione su login/logout/refresh. `tsc --noEmit` pulito.
+
 ---
 
 ## 📋 Audit completo (2026-05-21)
@@ -223,6 +242,7 @@ Criticità divise per severità. Numerazione stabile per riferimenti futuri.
 | L-013 | `src/store/useStore.ts:62` + `src/App.tsx:55-79` | Dopo login `loadFromCloud` parte sia da `App.tsx` sia da `onAuthStateChange` → doppio fetch a ogni login. |
 | L-014 | `src/lib/printService.ts:37` | `await import("@tauri-apps/api/core")` ad ogni stampa. In app desktop il modulo è già caricato — spostare in cima al file. |
 | L-015 | `src-tauri/src/lib.rs:80-92` | `dmPaperSize = 256` (DMPAPER_USER) con `dmPaperWidth` in decimi di mm. Funziona perché `StretchDIBits` ridimensiona a `HORZRES/VERTRES`, ma se il driver Brother non rispetta il DEVMODE custom il rendering può venire schiacciato. |
+| L-016 | `src/App.tsx:56-65` (post F-007) | `loadFromCloud` awaitato dentro callback `onAuthStateChange` → deadlock col lock auth di GoTrueClient (ogni query Supabase richiede a sua volta il lock già tenuto). Sintomo: log "loadFromCloud called…" ma zero traffico verso supabase.co, spinner infinito. **FIX in F-012.** |
 
 ### 🟢 Performance / risorse (P-xxx)
 
