@@ -15,10 +15,44 @@ import UpdateChecker from "@/components/UpdateChecker";
 
 export default function App() {
   const { user, setAuth, setTrialStart, setOrganizationName, clearAuth } = useAuthStore();
-  const { loadFromCloud, resetStore } = useStore();
+  const { loadFromCloud, resetStore, loaded } = useStore();
   const [checking, setChecking] = useState(true);
 
+  // Effetto 1 — solo stato auth. Niente await Supabase qui dentro: il
+  // callback gira dentro al lock di GoTrueClient e qualsiasi query
+  // si appenderebbe (deadlock → spinner infinito).
   useEffect(() => {
+    let mounted = true;
+
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session?.user) {
+        setAuth(session.user, session);
+        setChecking(false);
+      } else if (event === "INITIAL_SESSION") {
+        // Nessuna sessione all'avvio → AuthPage.
+        setChecking(false);
+      } else if (event === "SIGNED_OUT") {
+        resetStore();
+        clearAuth();
+        setChecking(false);
+      } else if (event === "TOKEN_REFRESHED" && session?.user) {
+        setAuth(session.user, session);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Effetto 2 — caricamento dati fuori dal lock auth. Dipende da user?.id
+  // così loadFromCloud parte una volta sola per utente (sia per sessione
+  // ripristinata sia per login fresco).
+  useEffect(() => {
+    if (!user) return;
     let mounted = true;
 
     async function loadAccountData(userId: string) {
@@ -50,39 +84,24 @@ export default function App() {
       }
     }
 
-    // Single source of truth per il caricamento utente: INITIAL_SESSION
-    // (sessione ripristinata all'avvio) e SIGNED_IN (login fresco) usano
-    // lo stesso path, così loadFromCloud parte una volta sola per login.
-    const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    (async () => {
+      await Promise.allSettled([
+        loadAccountData(user.id),
+        loadFromCloud(user.id),
+      ]);
       if (!mounted) return;
-
-      if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session?.user) {
-        setAuth(session.user, session);
-        await Promise.allSettled([
-          loadAccountData(session.user.id),
-          loadFromCloud(session.user.id),
-        ]);
-        await autoPickPrinterIfMissing();
-        setChecking(false);
-      } else if (event === "INITIAL_SESSION") {
-        // Nessuna sessione all'avvio → AuthPage.
-        setChecking(false);
-      } else if (event === "SIGNED_OUT") {
-        resetStore();
-        clearAuth();
-        setChecking(false);
-      } else if (event === "TOKEN_REFRESHED" && session?.user) {
-        setAuth(session.user, session);
-      }
-    });
+      await autoPickPrinterIfMissing();
+    })();
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [user?.id]);
 
-  if (checking) {
+  // Spinner finché non sappiamo lo stato auth, e — se loggato — finché
+  // i dati non sono pronti. loadFromCloud setta `loaded:true` in successo,
+  // errore o timeout (10s), quindi questa condizione non si appende mai.
+  if (checking || (user && !loaded)) {
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-app-bg">
         <div className="w-6 h-6 rounded-full border-2 border-brand border-t-transparent animate-spin" />

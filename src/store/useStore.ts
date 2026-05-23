@@ -63,19 +63,27 @@ export const useStore = create<AppStore>()((set, get) => ({
     console.log("loadFromCloud called with userId:", userId);
 
     try {
-      const [
-        settingsResult,
-        templatesResult,
-        printJobsResult,
-        categoriesResult,
-        accountResult,
-      ] = await Promise.allSettled([
+      const queries = Promise.allSettled([
         supabase.from("settings").select("*").eq("id", userId).single(),
         supabase.from("templates").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
         supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
         supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
         supabase.from("accounts").select("license_key, license_plan, license_expires_at, activated_at").eq("id", userId).single(),
       ]);
+
+      // Difesa in profondità: se anche una query Supabase resta appesa
+      // (lock auth, rete morta, ecc.) il timeout evita lo spinner infinito.
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("loadFromCloud timeout after 10s")), 10_000)
+      );
+
+      const [
+        settingsResult,
+        templatesResult,
+        printJobsResult,
+        categoriesResult,
+        accountResult,
+      ] = await Promise.race([queries, timeout]);
 
       const settingsRow =
         settingsResult.status === "fulfilled" ? settingsResult.value.data : null;
