@@ -8,18 +8,18 @@ import { PrintModal } from "@/components/labels/PrintModal";
 import { printLabel } from "@/lib/printService";
 import clsx from "clsx";
 
-const typeColor: Record<string, string> = {
-  ervenyesseg:   "bg-brand",
-  bontas:        "bg-amber",
-  termek_leiras: "bg-sky",
-  custom:        "bg-violet",
+const typeBorderLeft: Record<string, string> = {
+  ervenyesseg:   "border-l-brand",
+  bontas:        "border-l-amber",
+  termek_leiras: "border-l-sky",
+  custom:        "border-l-violet",
 };
 
-const typeBg: Record<string, string> = {
-  ervenyesseg:   "bg-brand",
-  bontas:        "bg-amber",
-  termek_leiras: "bg-sky",
-  custom:        "bg-violet",
+const typeBadgeSolid: Record<string, string> = {
+  ervenyesseg:   "text-white",
+  bontas:        "bg-amber text-white",
+  termek_leiras: "bg-sky text-white",
+  custom:        "bg-violet text-white",
 };
 
 const typeActiveClass: Record<string, string> = {
@@ -28,12 +28,18 @@ const typeActiveClass: Record<string, string> = {
   custom:        "border-violet/40 bg-violet/10 text-violet",
 };
 
+const typeFilterActive: Record<string, string> = {
+  ervenyesseg:   "bg-brand text-white border-brand",
+  termek_leiras: "bg-sky text-white border-sky",
+  custom:        "bg-violet text-white border-violet",
+};
+
 function BontasCard({ onPrint, lang }: { onPrint: (copies: number) => void; lang: "en" | "hu" }) {
   const today = format(new Date(), "dd.MM.yyyy");
   const [copies, setCopies] = useState(1);
   return (
     <div
-      className="col-span-2 flex items-center justify-between px-4 py-3 rounded-lg mb-1"
+      className="col-span-1 sm:col-span-2 lg:col-span-3 flex items-center justify-between px-4 py-3 rounded-lg mb-1"
       style={{ background: "#D4850A", borderColor: "#B8720A" }}
     >
       <div className="flex items-center gap-3">
@@ -303,41 +309,49 @@ function LabelCard({
   onDelete: (id: string) => void;
   onEdit:   (t: LabelTemplate) => void;
 }) {
+  const hoverActionClass =
+    "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity";
+
   return (
-    <div className="card p-4 flex flex-col gap-3 group relative">
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className={clsx("w-8 h-8 rounded-lg flex items-center justify-center opacity-15", typeBg[template.type])}>
-            <div className={clsx("w-2.5 h-2.5 rounded-full", typeColor[template.type])} />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink-primary truncate">{template.name}</p>
-            <p className="text-xs text-ink-secondary">{template.category} · {template.shelfLifeDays}d</p>
-          </div>
+    <div className={clsx(
+      "card border-l-4 shadow-sm p-4 flex flex-col gap-3 group relative",
+      typeBorderLeft[template.type] ?? "border-l-app-border"
+    )}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-md font-semibold text-ink-primary line-clamp-2">{template.name}</p>
+          <p className="text-xs text-ink-secondary mt-0.5">{template.category} · {template.shelfLifeDays}d</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <button
             onClick={() => onPin(template.id, !template.pinned)}
             className={clsx(
               "flex items-center justify-center w-7 h-7 rounded-md transition-colors",
               template.pinned
                 ? "text-brand bg-brand-muted"
-                : "text-ink-muted hover:text-brand hover:bg-brand-muted"
+                : clsx(
+                    "text-ink-muted hover:text-brand hover:bg-brand-muted",
+                    hoverActionClass
+                  )
             )}
           >
             <Pin size={13} />
           </button>
           <button
             onClick={() => onEdit(template)}
-            className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
-                       text-ink-muted hover:text-amber hover:bg-amber-muted"
+            className={clsx(
+              "flex items-center justify-center w-7 h-7 rounded-md transition-colors text-ink-muted hover:text-amber hover:bg-amber-muted",
+              hoverActionClass
+            )}
           >
             <Pencil size={13} />
           </button>
           <button
             onClick={() => onDelete(template.id)}
-            className="flex items-center justify-center w-7 h-7 rounded-md transition-colors
-                       text-ink-muted hover:text-coral hover:bg-coral-muted"
+            className={clsx(
+              "flex items-center justify-center w-7 h-7 rounded-md transition-colors text-ink-muted hover:text-coral hover:bg-coral-muted",
+              hoverActionClass
+            )}
           >
             <Trash2 size={13} />
           </button>
@@ -349,13 +363,13 @@ function LabelCard({
       )}
 
       <div className="flex items-center justify-between pt-1">
-        <span className={clsx(
-          "text-xs px-2 py-0.5 rounded-full font-medium",
-          template.type === "ervenyesseg"   && "bg-brand/10 text-brand-light",
-          template.type === "bontas"        && "bg-amber/10 text-amber",
-          template.type === "termek_leiras" && "bg-sky/10 text-sky",
-          template.type === "custom"        && "bg-violet/10 text-violet",
-        )}>
+        <span
+          className={clsx(
+            "text-xs px-2 py-0.5 rounded-full font-medium",
+            typeBadgeSolid[template.type] ?? "bg-app-elevated text-ink-secondary"
+          )}
+          style={template.type === "ervenyesseg" ? { background: "#D9A521" } : undefined}
+        >
           {t(`type_${template.type}` as Parameters<typeof t>[0], lang)}
         </span>
         <button onClick={() => onPrint(template)} className="btn-primary py-1.5 px-3 text-xs rounded-md">
@@ -376,16 +390,44 @@ export default function LabelsPage() {
   const addPrintJob    = useStore((s) => s.addPrintJob);
   const settings       = useStore((s) => s.settings);
 
-  const [search,        setSearch]        = useState("");
-  const [selected,      setSelected]      = useState<LabelTemplate | null>(null);
-  const [showForm,      setShowForm]      = useState(false);
-  const [editTarget,    setEditTarget]    = useState<LabelTemplate | null>(null);
-  const [bontasToast,   setBontasToast]   = useState(false);
+  const [search,      setSearch]      = useState("");
+  const [typeFilter,  setTypeFilter]  = useState<LabelType | "all">("all");
+  const [selected,    setSelected]    = useState<LabelTemplate | null>(null);
+  const [showForm,    setShowForm]    = useState(false);
+  const [editTarget,  setEditTarget]  = useState<LabelTemplate | null>(null);
+  const [bontasToast, setBontasToast] = useState(false);
 
-  const filtered = templates.filter((tmpl) =>
+  const searched = templates.filter((tmpl) =>
     tmpl.name.toLowerCase().includes(search.toLowerCase()) ||
     tmpl.category.toLowerCase().includes(search.toLowerCase())
   );
+
+  const counts = {
+    all:           searched.length,
+    ervenyesseg:   searched.filter((tm) => tm.type === "ervenyesseg").length,
+    termek_leiras: searched.filter((tm) => tm.type === "termek_leiras").length,
+    custom:        searched.filter((tm) => tm.type === "custom").length,
+  };
+
+  const filtered = (typeFilter === "all"
+    ? searched
+    : searched.filter((tm) => tm.type === typeFilter)
+  ).slice().sort((a, b) =>
+    a.name.localeCompare(b.name, "hu", { sensitivity: "base" })
+  );
+
+  const filterChips: { value: "all" | LabelType; label: string; count: number }[] = [
+    { value: "all", label: lang === "hu" ? "Összes" : "All", count: counts.all },
+    ...(counts.ervenyesseg > 0
+      ? [{ value: "ervenyesseg" as LabelType, label: t("type_ervenyesseg", lang), count: counts.ervenyesseg }]
+      : []),
+    ...(counts.termek_leiras > 0
+      ? [{ value: "termek_leiras" as LabelType, label: t("type_termek_leiras", lang), count: counts.termek_leiras }]
+      : []),
+    ...(counts.custom > 0
+      ? [{ value: "custom" as LabelType, label: t("type_custom", lang), count: counts.custom }]
+      : []),
+  ];
 
   const handleSaveNew = (data: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => {
     addTemplate(data);
@@ -457,11 +499,34 @@ export default function LabelsPage() {
         </div>
       </div>
 
+      <div className="px-6 pb-3 flex flex-wrap gap-2 flex-shrink-0">
+        {filterChips.map((chip) => {
+          const isActive = typeFilter === chip.value;
+          const activeClass = chip.value === "all"
+            ? "bg-ink-primary text-white border-ink-primary"
+            : typeFilterActive[chip.value];
+          return (
+            <button
+              key={chip.value}
+              onClick={() => setTypeFilter(chip.value)}
+              className={clsx(
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                isActive
+                  ? activeClass
+                  : "bg-app-surface border-app-border text-ink-secondary hover:border-app-border-hover hover:text-ink-primary"
+              )}
+            >
+              {chip.label} <span className="tabular-nums opacity-80">({chip.count})</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="flex-1 overflow-y-auto px-6 pb-6">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <BontasCard onPrint={handleBontasPrint} lang={lang} />
           {filtered.length === 0 ? (
-            <div className="col-span-2 text-sm text-center py-8 text-ink-muted">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-3 text-sm text-center py-8 text-ink-muted">
               {t("labels_none", lang)}
             </div>
           ) : (
