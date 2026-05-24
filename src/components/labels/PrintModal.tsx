@@ -53,11 +53,12 @@ interface PrintModalProps {
 }
 
 export function PrintModal({ template, onClose }: PrintModalProps) {
-  const lang        = useStore((s) => s.settings.language);
-  const addPrintJob = useStore((s) => s.addPrintJob);
-  const settings    = useStore((s) => s.settings);
+  const lang             = useStore((s) => s.settings.language);
+  const addPrintJob      = useStore((s) => s.addPrintJob);
+  const settings         = useStore((s) => s.settings);
+  const updateLastCopies = useStore((s) => s.updateLastCopies);
 
-  const [copies,  setCopies]  = useState(1);
+  const [copies,  setCopies]  = useState(template.lastCopies ?? 1);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
 
@@ -83,6 +84,9 @@ export function PrintModal({ template, onClose }: PrintModalProps) {
         expiryDate:   format(expiry, "yyyy-MM-dd"),
         operatorName: settings.operatorName || null,
       });
+    }
+    if (copies !== template.lastCopies) {
+      updateLastCopies(template.id, copies);
     }
     onClose();
   };

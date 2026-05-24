@@ -35,6 +35,7 @@ export interface LabelTemplate {
   createdAt: string;
   updatedAt: string;
   printCount: number;
+  lastCopies: number;
 }
 
 /* ── A single completed print job (for HACCP log) ── */
@@ -59,6 +60,7 @@ export interface AppSettings {
   printerName: string | null;   // null = auto-detect
   autoCalculateExpiry: boolean;
   haccpLogEnabled: boolean;
+  quickFilters: string[];       // user-defined home shortcuts (max 3)
 }
 
 /* ── License ── */

@@ -2,7 +2,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useStore } from "@/store/useStore";
 import { useAuthStore } from "@/lib/authStore";
 import { t } from "@/lib/i18n";
-import { LayoutGrid, Tag, FileText, Layers, Settings, Minus, Square, X, AlertTriangle } from "lucide-react";
+import { LayoutGrid, FileText, Layers, Settings, Minus, Square, X, AlertTriangle } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { differenceInDays, parseISO } from "date-fns";
 import clsx from "clsx";
@@ -199,7 +199,6 @@ export function AppShell({ children }: AppShellProps) {
           <LogoMark />
           <nav className="flex flex-col gap-1.5 flex-1">
             <SideNavItem to="/"           icon={<LayoutGrid size={18} />} label={t("nav_home", lang)} />
-            <SideNavItem to="/labels"     icon={<Tag size={18} />}        label={t("nav_labels", lang)} />
             <SideNavItem to="/log"        icon={<FileText size={18} />}   label={t("nav_log", lang)} />
             <SideNavItem to="/categories" icon={<Layers size={18} />}     label="Categories" />
           </nav>

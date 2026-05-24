@@ -15,6 +15,7 @@ const defaultSettings: AppSettings = {
   printerName:         null,
   autoCalculateExpiry: true,
   haccpLogEnabled:     true,
+  quickFilters:        [],
 };
 
 interface AppStore {
@@ -26,18 +27,20 @@ interface AppStore {
   categories: string[];
   loaded:     boolean;
 
-  loadFromCloud:   (userId: string) => Promise<void>;
-  updateSettings:  (partial: Partial<AppSettings>) => void;
-  addTemplate:     (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount">) => void;
-  updateTemplate:  (id: string, partial: Partial<LabelTemplate>) => void;
-  deleteTemplate:  (id: string) => void;
-  pinTemplate:     (id: string, pinned: boolean) => void;
-  addPrintJob:     (job: Omit<PrintJob, "id" | "printedAt">) => void;
-  setLicense:      (l: License | null) => void;
-  removeLicense:   () => Promise<void>;
-  addCategory:     (name: string) => void;
-  removeCategory:  (name: string) => void;
-  resetStore:      () => void;
+  loadFromCloud:      (userId: string) => Promise<void>;
+  updateSettings:     (partial: Partial<AppSettings>) => void;
+  updateQuickFilters: (filters: string[]) => void;
+  addTemplate:        (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount" | "lastCopies">) => void;
+  updateTemplate:     (id: string, partial: Partial<LabelTemplate>) => void;
+  updateLastCopies:   (templateId: string, copies: number) => void;
+  deleteTemplate:     (id: string) => void;
+  pinTemplate:        (id: string, pinned: boolean) => void;
+  addPrintJob:        (job: Omit<PrintJob, "id" | "printedAt">) => void;
+  setLicense:         (l: License | null) => void;
+  removeLicense:      () => Promise<void>;
+  addCategory:        (name: string) => void;
+  removeCategory:     (name: string) => void;
+  resetStore:         () => void;
 }
 
 interface SupabaseError {
@@ -116,6 +119,7 @@ export const useStore = create<AppStore>()((set, get) => ({
         printerName:         (settingsRow as any).printer_name        ?? null,
         autoCalculateExpiry: (settingsRow as any).auto_calculate_expiry ?? true,
         haccpLogEnabled:     (settingsRow as any).haccp_log_enabled   ?? true,
+        quickFilters:        (settingsRow as any).quick_filters       ?? [],
       } : defaultSettings;
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,6 +136,7 @@ export const useStore = create<AppStore>()((set, get) => ({
         printCount:    r.print_count,
         createdAt:     r.created_at,
         updatedAt:     r.updated_at,
+        lastCopies:    r.last_copies   ?? 1,
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -186,6 +191,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       printer_name:          merged.printerName,
       auto_calculate_expiry: merged.autoCalculateExpiry,
       haccp_log_enabled:     merged.haccpLogEnabled,
+      quick_filters:         merged.quickFilters,
       updated_at:            new Date().toISOString(),
     }).then(({ error }: SupabaseError) => {
       if (error) {
@@ -193,6 +199,10 @@ export const useStore = create<AppStore>()((set, get) => ({
         set({ settings: previousSettings });
       }
     });
+  },
+
+  updateQuickFilters: (filters) => {
+    get().updateSettings({ quickFilters: filters });
   },
 
   addTemplate: (tmpl) => {
@@ -204,7 +214,7 @@ export const useStore = create<AppStore>()((set, get) => ({
     set((s) => ({
       templates: [
         ...s.templates,
-        { ...tmpl, id, createdAt: now, updatedAt: now, printCount: 0 },
+        { ...tmpl, id, createdAt: now, updatedAt: now, printCount: 0, lastCopies: 1 },
       ],
     }));
     supabase.from("templates").insert({
@@ -219,6 +229,7 @@ export const useStore = create<AppStore>()((set, get) => ({
       profile:         tmpl.profile,
       pinned:          tmpl.pinned,
       print_count:     0,
+      last_copies:     1,
       created_at:      now,
       updated_at:      now,
     }).then(({ data, error }: SupabaseResult<unknown>) => {
@@ -257,6 +268,27 @@ export const useStore = create<AppStore>()((set, get) => ({
         set({ templates: previousTemplates });
       }
     });
+  },
+
+  updateLastCopies: (templateId, copies) => {
+    const { userId, templates: previousTemplates } = get();
+    if (!userId) return;
+    set((s) => ({
+      templates: s.templates.map((t) =>
+        t.id === templateId ? { ...t, lastCopies: copies } : t
+      ),
+    }));
+    supabase
+      .from("templates")
+      .update({ last_copies: copies })
+      .eq("id", templateId)
+      .eq("user_id", userId)
+      .then(({ error }: SupabaseError) => {
+        if (error) {
+          console.error("updateLastCopies failed, rolling back:", error);
+          set({ templates: previousTemplates });
+        }
+      });
   },
 
   deleteTemplate: (id) => {
