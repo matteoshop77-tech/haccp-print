@@ -1,0 +1,11 @@
+# HACCPrint — Supabase project configuration
+# Project ref: fqgsmnubfufyeoupxtgn
+# Created in M0 (cantiere-integration-haccprint-external).
+# Minimal config: schema/edge-function infra was introduced from scratch in M0.
+# Edge functions are added in M1/M2 under supabase/functions/.
+
+project_id = "fqgsmnubfufyeoupxtgn"
+
+[db]
+# Default Postgres major version used by Supabase.
+major_version = 15
