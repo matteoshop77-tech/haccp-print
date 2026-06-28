@@ -1,13 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays } from "date-fns";
-import { Search, Plus, Minus, Printer, Pin, Pencil, Trash2, X, Eye } from "lucide-react";
+import { Search, Plus, Minus, Printer, Pin, Pencil, Trash2, X, Eye, Wand2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate, LabelType } from "@/lib/types";
 import { printLabel } from "@/lib/printService";
 import { LabelForm, type LabelFormData } from "@/components/labels/LabelForm";
 import { PrintModal } from "@/components/labels/PrintModal";
+import { QuickCustomPrintDialog } from "@/components/labels/QuickCustomPrintDialog";
 import clsx from "clsx";
 
 const typeDot: Record<LabelType, string> = {
@@ -421,6 +422,7 @@ export default function HomePage() {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [sortMode, setSortMode]         = useState<SortMode>("az");
   const [showForm, setShowForm]         = useState(false);
+  const [showQuickCustom, setShowQuickCustom] = useState(false);
   const [editTarget, setEditTarget]     = useState<LabelTemplate | null>(null);
   const [selected, setSelected]         = useState<LabelTemplate | null>(null);
   const [toast, setToast]               = useState("");
@@ -505,13 +507,22 @@ export default function HomePage() {
             </button>
           )}
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="btn-primary py-1.5 px-3 text-sm rounded-md flex-shrink-0"
-        >
-          <Plus size={14} />
-          {t("home_add_new", lang)}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowQuickCustom(true)}
+            className="btn-ghost py-1.5 px-3 text-sm rounded-md"
+          >
+            <Wand2 size={14} />
+            {t("home_quick_custom", lang)}
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="btn-primary py-1.5 px-3 text-sm rounded-md"
+          >
+            <Plus size={14} />
+            {t("home_add_new", lang)}
+          </button>
+        </div>
       </div>
 
       {/* Search + sort */}
@@ -594,6 +605,12 @@ export default function HomePage() {
       )}
       {selected && (
         <PrintModal template={selected} onClose={() => setSelected(null)} />
+      )}
+      {showQuickCustom && (
+        <QuickCustomPrintDialog
+          onClose={() => setShowQuickCustom(false)}
+          onPrinted={() => showToast(`${t("qcp_title", lang)} ✓`)}
+        />
       )}
 
       {/* Toast */}

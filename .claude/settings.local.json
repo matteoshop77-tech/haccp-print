@@ -4,7 +4,8 @@
       "Bash(cargo check *)",
       "Bash(npx tsc *)",
       "Bash(git add *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(git commit -m 'feat: add quick custom print dialog with orientation, font presets and live preview *)"
     ]
   }
 }

@@ -42,6 +42,21 @@ const translations = {
     print_preview:    "Label preview",
     print_printing:   "Printing…",
 
+    /* Quick custom print */
+    home_quick_custom:    "Quick custom print",
+    qcp_title:            "Quick custom print",
+    qcp_orientation:      "Orientation",
+    qcp_horizontal:       "Horizontal",
+    qcp_vertical:         "Vertical",
+    qcp_font_size:        "Font size",
+    qcp_small:            "Small",
+    qcp_medium:           "Medium",
+    qcp_large:            "Large",
+    qcp_text:             "Text",
+    qcp_text_placeholder: "FRIGORIFERO -01",
+    qcp_estimated_size:   "Estimated size",
+    qcp_print:            "Print",
+
     /* Labels page */
     labels_form_type:        "Label type",
     labels_form_name:        "Label name",
@@ -205,6 +220,21 @@ const translations = {
     print_max:        "max 200",
     print_preview:    "Címke előnézet",
     print_printing:   "Nyomtatás…",
+
+    /* Quick custom print */
+    home_quick_custom:    "Gyors egyéni nyomtatás",
+    qcp_title:            "Gyors egyéni nyomtatás",
+    qcp_orientation:      "Tájolás",
+    qcp_horizontal:       "Vízszintes",
+    qcp_vertical:         "Függőleges",
+    qcp_font_size:        "Betűméret",
+    qcp_small:            "Kicsi",
+    qcp_medium:           "Közepes",
+    qcp_large:            "Nagy",
+    qcp_text:             "Szöveg",
+    qcp_text_placeholder: "FRIGORIFERO -01",
+    qcp_estimated_size:   "Becsült méret",
+    qcp_print:            "Nyomtatás",
 
     labels_form_type:        "Címke típusa",
     labels_form_name:        "Címke neve",
