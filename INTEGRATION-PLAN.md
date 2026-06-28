@@ -17,6 +17,7 @@
 - [2. Stato avanzamento](#2-stato-avanzamento)
   - [2.1 Checklist milestone](#21-checklist-milestone)
   - [2.2 Sotto-sezioni di chiusura milestone](#22-sotto-sezioni-di-chiusura-milestone)
+  - [2.3 Evoluzioni post-integrazione](#23-evoluzioni-post-integrazione)
 - [3. Stato attuale di HACCPrint (vincoli di design)](#3-stato-attuale-di-haccprint-vincoli-di-design)
 - [4. Decisione architetturale chiave](#4-decisione-architetturale-chiave)
 - [5. Schema DB](#5-schema-db)
@@ -238,6 +239,29 @@ significherebbe debuggare due cose nuove insieme.
   - Fail-open sul limiter: se la SQL function fallisce, la richiesta passa (no caduta API per glitch limiter).
   - CORS `"*"` mantenuto definitivamente con commento di rationale (Planivo chiama server-to-server, token-protetto).
   - Retention solo per `status='done'`. Failed tenuti per debug.
+
+### 2.3 Evoluzioni post-integrazione
+
+> Lavori successivi alla chiusura delle 6 milestone che toccano l'integrazione.
+
+#### Cantiere "Opening date" — system template per-account (28 giugno 2026)
+- **Branch/merge:** `cantiere-opening-date-system-template` → PR #1 (`2d7b2be`), commit feature `4f23850`. Merge in `master`.
+- **Cosa cambia per l'integrazione:**
+  - Il template "Bontás napja" (Opening date) è ora un **vero template per-account** nel DB
+    (`templates.is_system_template = true`), non più una card virtuale `"bontas-fixed"` hardcoded.
+    1 system template per account (trigger su `auth.users` + backfill account esistenti).
+  - **Auto-assegnazione visibility ai `connected_apps`:** backfill verso le connessioni attive +
+    trigger per le connessioni future → il system template è automaticamente visibile alle app
+    esterne senza assegnazione manuale dal LabelForm.
+  - **`POST /print` ora accetta il `template_id` reale** (UUID vero) anche per "Bontás napja".
+    Prima `"bontas-fixed"` falliva la verifica di visibility ([6.3](#63-post-print)) perché non era
+    un UUID presente in `templates`.
+  - **`GET /templates`** lo espone come elemento normale con `type='bontas'`. Planivo lo riconosce
+    e lo fissa in cima alla propria griglia (comportamento speculare al desktop HACCPrint).
+  - **Listener desktop NON modificato:** il system template è risolto come tutti gli altri,
+    store-first. Nessuna modifica al pipeline GDI ([R1 di CLAUDE.md](#) — pipeline intoccabile).
+- **Limite noto (follow-up dedicato):** il blocco hard-block RLS su UPDATE/DELETE del system
+  template **non** è implementato; per ora solo guardrail UI. Step dedicato post-cantiere.
 
 ---
 

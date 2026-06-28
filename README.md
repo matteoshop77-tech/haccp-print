@@ -94,6 +94,23 @@ src-tauri/
 3. Add the build logic in `src/lib/printService.ts` → `buildLabelLines()`
 4. Done — it appears automatically in the UI
 
+## System templates
+
+Most label types are user-created templates stored per account. One type —
+**Opening date** (`type: "bontas"`, "Bontás napja" in Hungarian) — is a **system
+template**: a real row in `templates` with `is_system_template = true`, auto-provisioned
+once per account (no longer a hardcoded synthetic `"bontas-fixed"` card).
+
+- A database trigger on `auth.users` creates the Opening date system template for every
+  new account; existing accounts were backfilled.
+- It is hidden from the Home grid, the Labels list and the Unassigned-labels panel to
+  avoid showing it twice (the Home `BontasCard` already renders it).
+- It prints like any other template: the desktop print-queue listener resolves it
+  store-first, and external apps receive it through `GET /templates` as a regular
+  `type: "bontas"` entry. It is auto-assigned to active connected apps.
+- Guardrails against editing/deleting it are currently **UI-only**; a database-level
+  (RLS) hard block is a planned follow-up.
+
 ## Adding a new language
 
 1. Add the language code to `src/lib/types.ts` → `Language`
