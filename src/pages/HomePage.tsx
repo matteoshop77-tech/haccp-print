@@ -220,37 +220,35 @@ function BontasCard({ lang, onPrinted }: {
   const [loading, setLoading] = useState(false);
   const settings    = useStore((s) => s.settings);
   const addPrintJob = useStore((s) => s.addPrintJob);
+  // Real per-account system template (X.1 migration) — replaces the old synthetic
+  // "bontas-fixed". Prefer the explicit marker, fall back to type for safety.
+  const systemTemplate = useStore((s) =>
+    s.templates.find((tpl) => tpl.isSystemTemplate) ??
+    s.templates.find((tpl) => tpl.type === "bontas") ??
+    null
+  );
+
+  // Graceful fallback: if the system template isn't loaded yet (new account /
+  // trigger race / first load), don't render the card rather than crash.
+  if (!systemTemplate) return null;
 
   const handlePrint = async () => {
     setLoading(true);
     const now      = new Date();
     const todayStr = format(now, "yyyy-MM-dd");
-    const bontasTemplate: LabelTemplate = {
-      id:            "bontas-fixed",
-      name:          t("type_bontas", lang),
-      category:      t("type_bontas", lang),
-      type:          "bontas",
-      shelfLifeDays: 0,
-      description:   null,
-      allergens:     null,
-      profile:       settings.profile,
-      pinned:        false,
-      printCount:    0,
-      createdAt:     now.toISOString(),
-      updatedAt:     now.toISOString(),
-      lastCopies:    1,
-    };
-    const result = await printLabel(bontasTemplate, copies, now, lang, settings.printerName);
+    // Print the REAL template (real UUID). name is fixed 'Bontás napja' (decision 1B).
+    // NB: do NOT call updateLastCopies/updateTemplate/deleteTemplate on the system template.
+    const result = await printLabel(systemTemplate, copies, now, lang, settings.printerName);
     setLoading(false);
     if (!result.success) return;
     if (settings.haccpLogEnabled) {
       addPrintJob({
-        templateId:   "bontas-fixed",
-        templateName: t("type_bontas", lang),
+        templateId:   systemTemplate.id,
+        templateName: systemTemplate.name,
         labelType:    "bontas",
         copies,
         preparedDate: todayStr,
-        expiryDate:   todayStr,
+        expiryDate:   todayStr,   // bontas: shelf_life_days = 0 → expiry = prepared
         operatorName: settings.operatorName || null,
       });
     }
@@ -452,8 +450,11 @@ export default function HomePage() {
   ];
 
   const searchLower = search.toLowerCase();
+  // System templates (e.g. "Bontás napja") are shown as the fixed BontasCard, never
+  // in the grid — exclude them so they don't appear twice.
   let filtered = templates.filter((tmpl) =>
-    !searchLower || tmpl.name.toLowerCase().includes(searchLower)
+    !tmpl.isSystemTemplate &&
+    (!searchLower || tmpl.name.toLowerCase().includes(searchLower))
   );
 
   if (activeFilter) {

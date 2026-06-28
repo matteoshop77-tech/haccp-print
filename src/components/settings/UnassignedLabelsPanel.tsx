@@ -35,7 +35,9 @@ export default function UnassignedLabelsPanel({ lang }: { lang: "en" | "hu" }) {
   const activeAppIds = new Set(connectedApps.map((a) => a.id));
   const isAssigned = (id: string) =>
     (templateVisibility[id] ?? []).some((appId) => activeAppIds.has(appId));
-  const unassigned = templates.filter((tmpl) => !isAssigned(tmpl.id));
+  // System templates (e.g. "Bontás napja") are always auto-assigned and not user-
+  // managed → never list them here, even though they're technically always assigned.
+  const unassigned = templates.filter((tmpl) => !tmpl.isSystemTemplate && !isAssigned(tmpl.id));
   const searchLower = search.toLowerCase();
   const visible = unassigned.filter(
     (tmpl) => !searchLower || tmpl.name.toLowerCase().includes(searchLower)

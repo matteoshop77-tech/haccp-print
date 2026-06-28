@@ -159,6 +159,7 @@ export const useStore = create<AppStore>()((set, get) => ({
         createdAt:     r.created_at,
         updatedAt:     r.updated_at,
         lastCopies:    r.last_copies   ?? 1,
+        isSystemTemplate: r.is_system_template ?? false,
       }));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

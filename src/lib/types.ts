@@ -36,6 +36,7 @@ export interface LabelTemplate {
   updatedAt: string;
   printCount: number;
   lastCopies: number;
+  isSystemTemplate?: boolean;   // true = system template (e.g. "Bontás napja"); hidden from grid, not editable
 }
 
 /* ── A single completed print job (for HACCP log) ── */
