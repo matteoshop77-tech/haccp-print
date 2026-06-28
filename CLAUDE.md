@@ -141,3 +141,10 @@ Output build:
 - Stack stampa: Canvas 3× scale → PNG base64 → Rust GDI via Tauri `invoke("print_label_image", ...)`
 - Auth Supabase email+password, single-tenant per utente (user_id = auth.uid())
 - HACCPrint NON ha cartella `supabase/` nel repo — schema gestito da dashboard. Edge functions e migrations da introdurre nel cantiere integration.
+
+> ⚠️ Nota aggiornata (giugno 2026): il cantiere integration è chiuso e mergiato.
+> La cartella `supabase/` ora ESISTE (migrations + edge functions `connect`/`templates`/`print`).
+> Dettaglio in INTEGRATION-PLAN.md.
+
+- **System template "Opening date" (Bontás napja)**: dal cantiere "Opening date" (giugno 2026) è un VERO template per-account nel DB (`templates.is_system_template = true`), non più una card sintetica hardcoded `"bontas-fixed"`. 1 per account, creato da trigger su `auth.users` + backfill sugli account esistenti. Escluso da griglia Home / LabelsPage / UnassignedLabelsPanel (no doppione, lo rende già la `BontasCard`). Auto-assegnato ai `connected_apps` attivi (backfill + trigger per le connessioni future). Esposto a Planivo via `GET /templates` come `type='bontas'`. Listener desktop invariato (risolto store-first come gli altri).
+- ⚠️ **Guardrail system template solo UI**: la protezione contro UPDATE/DELETE del system template NON è ancora un hard-block a livello RLS. Da implementare in uno step dedicato post-cantiere. Finché non c'è, NON assumere che il DB rifiuti modifiche/cancellazioni del system template.

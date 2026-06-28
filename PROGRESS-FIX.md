@@ -5,6 +5,46 @@ Stato: app Tauri 2 + React + TS + Rust per stampa etichette HACCP Brother QL-800
 
 ---
 
+## 🏗️ Cantieri completati
+
+### C-001 · Integrazione app esterne (HACCPrint API-ready) — M0→M5
+**Data:** 2026-06-28 · **Merge:** `c4c1d0d`
+
+Dettaglio completo in [INTEGRATION-PLAN.md](INTEGRATION-PLAN.md). In breve: HACCPrint diventa
+"stampabile da fuori" — edge functions `/connect`, `/templates`, `/print`; tabelle
+`connected_apps`, `template_visibility`, `print_queue`; listener desktop realtime con claim
+atomico; UI "Connected apps" + sezione "Visible to" nei template.
+
+### C-002 · "Opening date" promosso a system template per-account
+**Data:** 2026-06-28 · **Merge:** PR #1 `2d7b2be` (feature `4f23850`) · **Branch:** `cantiere-opening-date-system-template`
+
+**Contesto**
+"Bontás napja" (Opening date) era una card sintetica hardcoded (`"bontas-fixed"`), non un template
+reale. Non aveva un UUID in `templates`, quindi `POST /print` la rifiutava (verifica visibility
+fallita) e non era assegnabile ai `connected_apps`.
+
+**Cosa è stato fatto**
+- Nuova colonna `templates.is_system_template` (boolean, default `false`; `true` solo per "Opening date").
+- 1 system template "Bontás napja" per ogni account, con **backfill** su tutti gli account esistenti.
+- **Trigger su `auth.users`**: crea automaticamente il system template per ogni nuovo account.
+- **Auto-assegnazione visibility ai `connected_apps`**: backfill verso le connessioni attive +
+  trigger per le connessioni future.
+- `BontasCard` (Home) e `LabelsPage` non usano più `"bontas-fixed"` sintetico: leggono il template
+  reale dallo store.
+- System template **escluso** da griglia Home, da `LabelsPage` list e da `UnassignedLabelsPanel`
+  (no doppione).
+- `POST /print` ora accetta `template_id` reali anche per "Bontás napja" (UUID vero invece di
+  `"bontas-fixed"`, che falliva).
+- Listener desktop **non modificato**: il system template è risolto come tutti gli altri,
+  store-first (R1: nessun tocco al pipeline GDI).
+- Integrazione Planivo HUB: lato Planivo il template arriva via `GET /templates` come elemento
+  normale `type='bontas'`, fissato in cima alla griglia (speculare a HP desktop).
+
+**Non fatto (follow-up dedicato post-cantiere)**
+- RLS hard-block su UPDATE/DELETE dei system template: **non** implementato. Solo guardrail UI.
+
+---
+
 ## ✅ Fix completati
 
 ### F-001 · GDI multi-pagina (Problema 2 mitigato + Problema 1 risolto)
