@@ -8,43 +8,17 @@
 //
 // Deployed with verify_jwt = false: external apps do NOT have a HACCPrint JWT.
 // Authentication is custom (email+password) inside the function body.
-//
-// Auth model (see plan section 4): "RLS = owner; edge function = outside world."
-// The INSERT uses service_role (bypasses RLS); all access control is here in TS.
 // =============================================================================
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-
-// ⚠️ TODO M5: tighten CORS to a strict allowlist of Planivo (and future app)
-// origins. For M1 development we accept any origin to unblock integration.
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders, json, sha256Hex, createAdminClient } from "../_shared/auth.ts";
 
 // ⚠️ TODO M5: add rate limiting (per IP + per email, lockout after N failures).
 // This is a public auth endpoint → brute-force / credential-stuffing target.
-// Skipped in M1 on purpose; added with the rest of the polish in M5.
+// Skipped in M1/M2 on purpose; added with the rest of the polish in M5.
 
 const TOKEN_PREFIX = "hcp_live_";
 const TOKEN_PREFIX_LEN = 16; // chars of the raw token kept for the UI (token_prefix)
-
-function json(body: unknown, status: number): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
-}
-
-// SHA-256(raw) as lowercase hex.
-async function sha256Hex(input: string): Promise<string> {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
 
 // Random opaque token: "hcp_live_" + 64 hex chars (32 random bytes).
 function generateRawToken(): string {
@@ -87,7 +61,6 @@ Deno.serve(async (req: Request) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
   // 1. Validate credentials with an anon client (no session persistence).
   const authClient = createClient(supabaseUrl, anonKey, {
@@ -102,9 +75,7 @@ Deno.serve(async (req: Request) => {
   const accountId = signIn.user.id;
 
   // service_role client for all DB work (bypasses RLS by design).
-  const admin = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const admin = createAdminClient();
 
   // 2. org_name must be unique among ACTIVE connections for this account
   //    (product decision #2 / partial unique index). We check explicitly to
