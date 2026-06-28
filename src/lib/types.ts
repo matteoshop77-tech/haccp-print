@@ -63,6 +63,15 @@ export interface AppSettings {
   quickFilters: string[];       // user-defined home shortcuts (max 3)
 }
 
+/* ── Connected app (minimal shape for visibility assignment UI) ──
+   Distinct from the richer ConnectedAppsSection query (token_prefix, last_used).
+   org_name → orgName per app camelCase convention. */
+export interface ConnectedAppLite {
+  id: string;
+  orgName: string;
+  createdAt: string;
+}
+
 /* ── License ── */
 export interface License {
   key: string;

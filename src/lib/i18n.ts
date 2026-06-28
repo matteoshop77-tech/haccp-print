@@ -149,6 +149,21 @@ const translations = {
     connected_apps_revoke_confirm:"Revoke this connection? The app will lose access immediately.",
     connected_apps_revoked:       "Connection revoked",
 
+    /* Visibility (M3) */
+    labels_form_visible_to:       "Visible to",
+    labels_form_visible_to_sub:   "Connected apps that can see and print this label",
+    labels_form_visible_to_none:  "No connected apps",
+    connected_apps_unassigned_title:               "Unassigned labels",
+    connected_apps_unassigned_sub:                 "Labels not yet shared with any connected app",
+    connected_apps_unassigned_search_placeholder:  "Search labels...",
+    connected_apps_unassigned_select_all:          "Select all visible",
+    connected_apps_unassigned_clear:               "Clear selection",
+    connected_apps_unassigned_assign_to:           "Assign to:",
+    connected_apps_unassigned_apply:               "Apply",
+    connected_apps_unassigned_empty:               "All labels are assigned",
+    connected_apps_unassigned_success:             "{count} labels assigned to {apps} app(s)",
+    labels_card_shared_with:      "Shared with: {orgs}",
+
     /* Profiles */
     profile_restaurant: "Restaurant",
     profile_hotel:      "Hotel / Catering",
@@ -335,6 +350,21 @@ const translations = {
     connected_apps_revoke:        "Visszavonás",
     connected_apps_revoke_confirm:"Visszavonod ezt a kapcsolatot? Az alkalmazás azonnal elveszíti a hozzáférést.",
     connected_apps_revoked:       "Kapcsolat visszavonva",
+
+    /* Visibility (M3) */
+    labels_form_visible_to:       "Látható számára",
+    labels_form_visible_to_sub:   "Csatlakoztatott alkalmazások, amelyek láthatják és nyomtathatják ezt a címkét",
+    labels_form_visible_to_none:  "Nincs csatlakoztatott alkalmazás",
+    connected_apps_unassigned_title:               "Nem hozzárendelt címkék",
+    connected_apps_unassigned_sub:                 "Még egyetlen csatlakoztatott alkalmazással sem megosztott címkék",
+    connected_apps_unassigned_search_placeholder:  "Címkék keresése...",
+    connected_apps_unassigned_select_all:          "Összes látható kijelölése",
+    connected_apps_unassigned_clear:               "Kijelölés törlése",
+    connected_apps_unassigned_assign_to:           "Hozzárendelés:",
+    connected_apps_unassigned_apply:               "Alkalmaz",
+    connected_apps_unassigned_empty:               "Minden címke hozzá van rendelve",
+    connected_apps_unassigned_success:             "{count} címke hozzárendelve {apps} alkalmazáshoz",
+    labels_card_shared_with:      "Megosztva: {orgs}",
 
     profile_restaurant: "Étterem",
     profile_hotel:      "Hotel / Catering",

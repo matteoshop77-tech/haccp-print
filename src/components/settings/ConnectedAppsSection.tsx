@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/i18n";
+import UnassignedLabelsPanel from "@/components/settings/UnassignedLabelsPanel";
 
 // One active row of connected_apps. Mirrors the columns created in M0
 // (see INTEGRATION-PLAN.md section 5.1). The raw token is never available here
@@ -160,6 +161,9 @@ export default function ConnectedAppsSection({ lang }: { lang: "en" | "hu" }) {
           ))}
         </div>
       )}
+
+      {/* Bulk assignment panel for labels not yet shared with any app (M3). */}
+      <UnassignedLabelsPanel lang={lang} />
     </div>
   );
 }

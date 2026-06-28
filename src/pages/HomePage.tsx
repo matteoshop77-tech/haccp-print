@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { format, addDays } from "date-fns";
-import { Search, Plus, Minus, Printer, Pin, Pencil, Trash2, X, Eye, Wand2 } from "lucide-react";
+import { Search, Plus, Minus, Printer, Pin, Pencil, Trash2, X, Eye, Wand2, Link2 } from "lucide-react";
 import { useStore } from "@/store/useStore";
 import { t } from "@/lib/i18n";
 import type { LabelTemplate, LabelType } from "@/lib/types";
@@ -303,6 +303,14 @@ function HomeLabelCard({
   const settings         = useStore((s) => s.settings);
   const addPrintJob      = useStore((s) => s.addPrintJob);
   const updateLastCopies = useStore((s) => s.updateLastCopies);
+  const templateVisibility = useStore((s) => s.templateVisibility);
+  const connectedApps      = useStore((s) => s.connectedApps);
+
+  const sharedAppIds = templateVisibility[template.id] ?? [];
+  const sharedOrgs = sharedAppIds
+    .map((id) => connectedApps.find((a) => a.id === id)?.orgName)
+    .filter(Boolean)
+    .join(", ");
 
   const [copies, setCopies]   = useState(template.lastCopies ?? 1);
   const [loading, setLoading] = useState(false);
@@ -338,6 +346,14 @@ function HomeLabelCard({
         <div className="flex items-center gap-1.5 min-w-0">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: typeDot[template.type] }} />
           <p className="text-xs font-semibold text-ink-primary truncate leading-tight">{template.name}</p>
+          {sharedAppIds.length > 0 && (
+            <span
+              className="flex-shrink-0 flex items-center"
+              title={t("labels_card_shared_with", lang).replace("{orgs}", sharedOrgs)}
+            >
+              <Link2 size={11} style={{ color: "#1D9E75" }} />
+            </span>
+          )}
         </div>
         <span
           className="text-ink-muted flex-shrink-0 flex items-center gap-1 group-hover:invisible [@media(hover:none)]:invisible"
@@ -452,14 +468,14 @@ export default function HomePage() {
     return a.name.localeCompare(b.name, "hu", { sensitivity: "base" });
   });
 
-  const handleSaveNew = (data: LabelFormData) => {
-    addTemplate(data);
+  const handleSaveNew = (data: LabelFormData, visibleToAppIds?: string[]) => {
+    addTemplate(data, visibleToAppIds);
     setShowForm(false);
   };
 
-  const handleSaveEdit = (data: LabelFormData) => {
+  const handleSaveEdit = (data: LabelFormData, visibleToAppIds?: string[]) => {
     if (!editTarget) return;
-    updateTemplate(editTarget.id, data);
+    updateTemplate(editTarget.id, data, visibleToAppIds);
     setEditTarget(null);
   };
 
