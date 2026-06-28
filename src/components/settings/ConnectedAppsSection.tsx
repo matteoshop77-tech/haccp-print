@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useStore } from "@/store/useStore";
 import { t } from "@/lib/i18n";
 import UnassignedLabelsPanel from "@/components/settings/UnassignedLabelsPanel";
 
@@ -25,6 +26,7 @@ export default function ConnectedAppsSection({ lang }: { lang: "en" | "hu" }) {
   const [error, setError] = useState("");
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokedMsg, setRevokedMsg] = useState(false);
+  const refreshConnectedApps = useStore((s) => s.refreshConnectedApps);
 
   const loadApps = async () => {
     setError("");
@@ -66,6 +68,9 @@ export default function ConnectedAppsSection({ lang }: { lang: "en" | "hu" }) {
     setRevokedMsg(true);
     setTimeout(() => setRevokedMsg(false), 3000);
     await loadApps();
+    // Keep the store in sync so the homepage indicator + bulk panel update
+    // immediately, without an app restart (M5 bug fix 2).
+    await refreshConnectedApps();
   };
 
   const fmtDate = (iso: string) =>
@@ -103,7 +108,10 @@ export default function ConnectedAppsSection({ lang }: { lang: "en" | "hu" }) {
       )}
 
       {!loading && !error && apps.length === 0 && (
-        <div className="px-4 py-6 bg-app-surface border border-app-border rounded-lg text-center">
+        <div
+          className="px-4 py-6 rounded-lg text-center border"
+          style={{ background: "#F9FAFB", borderColor: "#E5E7EB" }}
+        >
           <p className="text-sm text-ink-muted">{t("connected_apps_empty", lang)}</p>
         </div>
       )}

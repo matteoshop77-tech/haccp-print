@@ -2,15 +2,18 @@
 // Shared helpers for HACCPrint edge functions (INTEGRATION-PLAN.md sections 6, 7).
 //
 // Auth model: "RLS = owner; edge function = outside world." (plan section 4)
-// External apps authenticate with an opaque token (hcp_live_…) in the
+// External apps authenticate with an opaque token (hcp_live_...) in the
 // Authorization header. We store only its SHA-256 hash; validation is a hash
 // lookup against connected_apps, scoped to active (revoked_at IS NULL) rows.
 // =============================================================================
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
-// ⚠️ TODO M5: tighten CORS to a strict allowlist of Planivo (and future app)
-// origins. For M1/M2 development we accept any origin to unblock integration.
+// CORS is intentionally permissive (Access-Control-Allow-Origin: *). These
+// endpoints are protected by token/credentials, NOT by CORS, and the primary
+// client (Planivo HUB) calls server-to-server where CORS does not apply.
+// Decision (M5): keep "*". Revisit only if a browser-based client ever needs a
+// strict origin allowlist (would be wired via an ALLOWED_ORIGINS secret).
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -53,18 +56,46 @@ export function createAdminClient(): SupabaseClient {
   });
 }
 
+// Best-effort client IP from the proxy headers (for the /connect IP rate limit).
+export function getClientIp(req: Request): string {
+  const xff = req.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+// Fixed-window rate limit via the check_rate_limit() SQL function (M5).
+// Returns true if allowed, false if the limit is exceeded. Fails OPEN on a
+// limiter error: a glitch in the limiter must not take the API down.
+export async function rateLimit(
+  admin: SupabaseClient,
+  bucket: string,
+  key: string,
+  limit: number,
+  windowSeconds: number,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("check_rate_limit", {
+    p_bucket: bucket,
+    p_key: key,
+    p_limit: limit,
+    p_window_seconds: windowSeconds,
+  });
+  if (error) {
+    console.error("rateLimit error:", error.message);
+    return true; // fail open
+  }
+  return data === true;
+}
+
 export interface TokenContext {
   account_id: string;
   connected_app_id: string;
   org_name: string;
 }
 
-// Validate the "Authorization: Bearer hcp_live_…" header against connected_apps.
-// On success: updates last_used_at and returns the token context.
-// On failure: throws AuthError (401 invalid/revoked/missing, 500 internal).
-//
-// ⚠️ TODO M5: add per-token rate limiting (the token is the only secret guarding
-// /templates and /print; throttle to contain abuse if a token leaks).
+// Validate the "Authorization: Bearer hcp_live_..." header against connected_apps.
+// On success: enforces a per-token rate limit, updates last_used_at, and returns
+// the token context. On failure: throws AuthError (401 invalid/revoked/missing,
+// 429 too many requests, 500 internal).
 export async function validateToken(
   authHeader: string | null,
   admin: SupabaseClient,
@@ -92,6 +123,13 @@ export async function validateToken(
   }
   if (!data) {
     throw new AuthError("Invalid or revoked token", 401);
+  }
+
+  // Per-token rate limit (M5): 60 requests / minute. Contains abuse if a token
+  // leaks. Keyed by token_hash so each connection has its own budget.
+  const allowed = await rateLimit(admin, "token", tokenHash, 60, 60);
+  if (!allowed) {
+    throw new AuthError("Too many requests", 429);
   }
 
   // Touch last_used_at so the owner can spot anomalies in the Settings UI.

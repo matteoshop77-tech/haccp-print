@@ -11,11 +11,7 @@
 // =============================================================================
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { corsHeaders, json, sha256Hex, createAdminClient } from "../_shared/auth.ts";
-
-// ⚠️ TODO M5: add rate limiting (per IP + per email, lockout after N failures).
-// This is a public auth endpoint → brute-force / credential-stuffing target.
-// Skipped in M1/M2 on purpose; added with the rest of the polish in M5.
+import { corsHeaders, json, sha256Hex, createAdminClient, rateLimit, getClientIp } from "../_shared/auth.ts";
 
 const TOKEN_PREFIX = "hcp_live_";
 const TOKEN_PREFIX_LEN = 16; // chars of the raw token kept for the UI (token_prefix)
@@ -59,6 +55,18 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  // service_role client for all DB work (bypasses RLS by design).
+  const admin = createAdminClient();
+
+  // Rate limit per IP (M5): 10 attempts / 5 minutes. Brute-force / credential-
+  // stuffing protection on this public auth endpoint. Checked BEFORE the auth
+  // work so spam never reaches signInWithPassword.
+  const ip = getClientIp(req);
+  const allowed = await rateLimit(admin, "connect_ip", ip, 10, 300);
+  if (!allowed) {
+    return json({ error: "Too many requests. Please try again later." }, 429);
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -73,9 +81,6 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid email or password" }, 401);
   }
   const accountId = signIn.user.id;
-
-  // service_role client for all DB work (bypasses RLS by design).
-  const admin = createAdminClient();
 
   // 2. org_name must be unique among ACTIVE connections for this account
   //    (product decision #2 / partial unique index). We check explicitly to

@@ -30,7 +30,12 @@ export default function UnassignedLabelsPanel({ lang }: { lang: "en" | "hu" }) {
 
   if (connectedApps.length === 0) return null;
 
-  const unassigned = templates.filter((tmpl) => !(templateVisibility[tmpl.id]?.length));
+  // A label counts as "assigned" only if it is visible to at least one ACTIVE
+  // app. Visibility rows toward revoked apps don't keep it out of the bulk panel.
+  const activeAppIds = new Set(connectedApps.map((a) => a.id));
+  const isAssigned = (id: string) =>
+    (templateVisibility[id] ?? []).some((appId) => activeAppIds.has(appId));
+  const unassigned = templates.filter((tmpl) => !isAssigned(tmpl.id));
   const searchLower = search.toLowerCase();
   const visible = unassigned.filter(
     (tmpl) => !searchLower || tmpl.name.toLowerCase().includes(searchLower)

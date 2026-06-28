@@ -42,6 +42,7 @@ interface AppStore {
   pinTemplate:        (id: string, pinned: boolean) => void;
   assignVisibilityBulk: (templateIds: string[], appIds: string[]) => void;
   unassignVisibility: (templateId: string, appId: string) => void;
+  refreshConnectedApps: () => Promise<void>;
   addPrintJob:        (job: Omit<PrintJob, "id" | "printedAt">) => void;
   setLicense:         (l: License | null) => void;
   removeLicense:      () => Promise<void>;
@@ -457,6 +458,30 @@ export const useStore = create<AppStore>()((set, get) => ({
       .then(({ error }: SupabaseError) => {
         if (error) console.error("unassignVisibility failed:", error);
       });
+  },
+
+  // Re-query active connected apps (e.g. after a revoke in Settings) so the UI
+  // reflects the change without an app restart (M5 bug fix 2).
+  refreshConnectedApps: async () => {
+    const { userId } = get();
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("connected_apps")
+      .select("id, org_name, created_at")
+      .eq("account_id", userId)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("refreshConnectedApps failed:", error.message);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const connectedApps: ConnectedAppLite[] = ((data ?? []) as any[]).map((r) => ({
+      id:        r.id,
+      orgName:   r.org_name,
+      createdAt: r.created_at,
+    }));
+    set({ connectedApps });
   },
 
   addPrintJob: (job) => {

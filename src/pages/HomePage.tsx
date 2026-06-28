@@ -306,11 +306,12 @@ function HomeLabelCard({
   const templateVisibility = useStore((s) => s.templateVisibility);
   const connectedApps      = useStore((s) => s.connectedApps);
 
-  const sharedAppIds = templateVisibility[template.id] ?? [];
-  const sharedOrgs = sharedAppIds
+  // Only count visibility toward ACTIVE apps (connectedApps holds active only),
+  // so a label shared exclusively with a revoked app shows no ghost icon (M5).
+  const activeSharedOrgs = (templateVisibility[template.id] ?? [])
     .map((id) => connectedApps.find((a) => a.id === id)?.orgName)
-    .filter(Boolean)
-    .join(", ");
+    .filter(Boolean);
+  const sharedOrgs = activeSharedOrgs.join(", ");
 
   const [copies, setCopies]   = useState(template.lastCopies ?? 1);
   const [loading, setLoading] = useState(false);
@@ -346,7 +347,7 @@ function HomeLabelCard({
         <div className="flex items-center gap-1.5 min-w-0">
           <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: typeDot[template.type] }} />
           <p className="text-xs font-semibold text-ink-primary truncate leading-tight">{template.name}</p>
-          {sharedAppIds.length > 0 && (
+          {activeSharedOrgs.length > 0 && (
             <span
               className="flex-shrink-0 flex items-center"
               title={t("labels_card_shared_with", lang).replace("{orgs}", sharedOrgs)}

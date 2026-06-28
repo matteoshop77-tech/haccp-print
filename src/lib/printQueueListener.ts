@@ -197,7 +197,12 @@ export function startPrintQueueListener(userId: string): () => void {
       const result = await printLabel(template, job.copies, preparedDate, lang, printerName);
 
       if (!result.success) {
-        console.error("[printQueueListener] print failed for", job.id, result.error);
+        // No auto-retry (product decision #5): mark failed; the user reprints
+        // manually from Planivo. Loud, explicit log for devtools debugging.
+        console.error(
+          `[printQueueListener] PRINT FAILED — job ${job.id} (template "${template.name}"): ` +
+          `${result.error ?? "unknown error"}. No auto-retry; reprint manually from the external app.`,
+        );
         await markFailed(job.id, result.error ?? "print_failed");
         return;
       }
@@ -267,6 +272,25 @@ export function startPrintQueueListener(userId: string): () => void {
     for (const r of rows) enqueue(r.id);
   }
 
+  // Retention (M5): drop 'done' jobs older than 30 days. 'failed' jobs are kept
+  // for debugging. Lazy — runs once at startup, before catch-up. Low volume,
+  // deterministic, no pg_cron needed.
+  const RETENTION_DAYS = 30;
+  async function runRetention(): Promise<void> {
+    const cutoff = new Date(Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    const { error } = await supabase
+      .from("print_queue")
+      .delete()
+      .eq("account_id", userId)
+      .eq("status", "done")
+      .lt("printed_at", cutoff);
+    if (error) {
+      console.error("[printQueueListener] retention cleanup error:", error.message);
+    } else {
+      console.log(`[printQueueListener] retention: removed done jobs older than ${RETENTION_DAYS}d.`);
+    }
+  }
+
   // Subscribe first, catch-up on SUBSCRIBED → no missed-job gap.
   const channel = supabase
     .channel(`print_queue_${userId}`)
@@ -281,7 +305,13 @@ export function startPrintQueueListener(userId: string): () => void {
     )
     .subscribe((status) => {
       console.log("[printQueueListener] realtime status:", status);
-      if (status === "SUBSCRIBED") void catchUp();
+      if (status === "SUBSCRIBED") {
+        // Retention first, then catch-up on pending jobs.
+        void (async () => {
+          await runRetention();
+          await catchUp();
+        })();
+      }
     });
 
   return () => {
