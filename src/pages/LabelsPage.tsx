@@ -170,6 +170,12 @@ export default function LabelsPage() {
   const updateTemplate = useStore((s) => s.updateTemplate);
   const addPrintJob    = useStore((s) => s.addPrintJob);
   const settings       = useStore((s) => s.settings);
+  // Real per-account system template (X.1) — replaces the old synthetic "bontas-fixed".
+  const systemTemplate = useStore((s) =>
+    s.templates.find((tpl) => tpl.isSystemTemplate) ??
+    s.templates.find((tpl) => tpl.type === "bontas") ??
+    null
+  );
 
   const [search,      setSearch]      = useState("");
   const [typeFilter,  setTypeFilter]  = useState<LabelType | "all">("all");
@@ -178,9 +184,11 @@ export default function LabelsPage() {
   const [editTarget,  setEditTarget]  = useState<LabelTemplate | null>(null);
   const [bontasToast, setBontasToast] = useState(false);
 
+  // System templates (e.g. "Bontás napja") are not user-managed labels — hide them.
   const searched = templates.filter((tmpl) =>
-    tmpl.name.toLowerCase().includes(search.toLowerCase()) ||
-    tmpl.category.toLowerCase().includes(search.toLowerCase())
+    !tmpl.isSystemTemplate &&
+    (tmpl.name.toLowerCase().includes(search.toLowerCase()) ||
+     tmpl.category.toLowerCase().includes(search.toLowerCase()))
   );
 
   const counts = {
@@ -222,31 +230,17 @@ export default function LabelsPage() {
   };
 
   const handleBontasPrint = async (copies: number) => {
+    if (!systemTemplate) return;   // graceful: not loaded yet → no-op instead of crash
     const now = new Date();
     const today = format(now, "yyyy-MM-dd");
 
-    const bontasTemplate: LabelTemplate = {
-      id:            "bontas-fixed",
-      name:          t("type_bontas", lang),
-      category:      t("type_bontas", lang),
-      type:          "bontas",
-      shelfLifeDays: 0,
-      description:   null,
-      allergens:     null,
-      profile:       settings.profile,
-      pinned:        false,
-      printCount:    0,
-      createdAt:     now.toISOString(),
-      updatedAt:     now.toISOString(),
-      lastCopies:    1,
-    };
-
-    await printLabel(bontasTemplate, copies, now, lang, settings.printerName);
+    // Print the REAL system template (real UUID), no more synthetic "bontas-fixed".
+    await printLabel(systemTemplate, copies, now, lang, settings.printerName);
 
     if (settings.haccpLogEnabled) {
       addPrintJob({
-        templateId:   "bontas-fixed",
-        templateName: t("type_bontas", lang),
+        templateId:   systemTemplate.id,
+        templateName: systemTemplate.name,
         labelType:    "bontas",
         copies,
         preparedDate: today,
