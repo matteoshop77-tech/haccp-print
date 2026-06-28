@@ -137,6 +137,18 @@ const translations = {
     settings_activate:      "Activate",
     settings_license_key:   "Enter license key…",
 
+    /* Connected apps (integrations) */
+    settings_connected_apps:      "Connected apps",
+    connected_apps_title:         "Connected apps",
+    connected_apps_sub:           "External apps connected to your account. They can read assigned templates and queue prints — they cannot change your data.",
+    connected_apps_empty:         "No apps connected.",
+    connected_apps_connected_on:  "Connected on",
+    connected_apps_last_used:     "Last used",
+    connected_apps_never_used:    "Never used",
+    connected_apps_revoke:        "Revoke",
+    connected_apps_revoke_confirm:"Revoke this connection? The app will lose access immediately.",
+    connected_apps_revoked:       "Connection revoked",
+
     /* Profiles */
     profile_restaurant: "Restaurant",
     profile_hotel:      "Hotel / Catering",
@@ -311,6 +323,18 @@ const translations = {
     settings_no_license:    "Nincs aktivált licenc.",
     settings_activate:      "Aktiválás",
     settings_license_key:   "Add meg a licenckulcsot…",
+
+    /* Connected apps (integrations) */
+    settings_connected_apps:      "Csatlakoztatott alkalmazások",
+    connected_apps_title:         "Csatlakoztatott alkalmazások",
+    connected_apps_sub:           "A fiókodhoz csatlakoztatott külső alkalmazások. Olvashatják a hozzárendelt sablonokat és nyomtatást indíthatnak — az adataidat nem módosíthatják.",
+    connected_apps_empty:         "Nincs csatlakoztatott alkalmazás.",
+    connected_apps_connected_on:  "Csatlakoztatva",
+    connected_apps_last_used:     "Utoljára használva",
+    connected_apps_never_used:    "Soha nem használt",
+    connected_apps_revoke:        "Visszavonás",
+    connected_apps_revoke_confirm:"Visszavonod ezt a kapcsolatot? Az alkalmazás azonnal elveszíti a hozzáférést.",
+    connected_apps_revoked:       "Kapcsolat visszavonva",
 
     profile_restaurant: "Étterem",
     profile_hotel:      "Hotel / Catering",
