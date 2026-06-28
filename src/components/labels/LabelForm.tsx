@@ -35,12 +35,20 @@ export type LabelFormData = Omit<
 
 interface LabelFormProps {
   template: LabelTemplate | null;
-  onSave:   (data: LabelFormData) => void;
+  onSave:   (data: LabelFormData, visibleToAppIds?: string[]) => void;
   onClose:  () => void;
 }
 
 export function LabelForm({ template, onSave, onClose }: LabelFormProps) {
   const lang = useStore((s) => s.settings.language);
+  const connectedApps      = useStore((s) => s.connectedApps);
+  const templateVisibility = useStore((s) => s.templateVisibility);
+
+  // Visibility selection — initialized from the stored map in edit mode, empty
+  // in create mode. Only surfaced when there is at least one connected app.
+  const [visibleToAppIds, setVisibleToAppIds] = useState<string[]>(
+    template ? (templateVisibility[template.id] ?? []) : []
+  );
 
   const [type, setType]               = useState<LabelType>(template?.type ?? "ervenyesseg");
   const [name, setName]               = useState(template?.name ?? "");
@@ -63,17 +71,27 @@ export function LabelForm({ template, onSave, onClose }: LabelFormProps) {
 
   const handleSubmit = () => {
     if (!isValid) return;
-    onSave({
-      name:          name.trim() || "Custom",
-      category:      type === "custom" ? "Custom" : category.trim(),
-      type,
-      shelfLifeDays: type === "custom" ? 1 : shelfLife,
-      description:   description.trim() || null,
-      allergens:     type === "termek_leiras" ? (allergens.trim() || null) : null,
-      profile:       "restaurant" as IndustryProfile,
-      pinned:        template?.pinned ?? false,
-    });
+    onSave(
+      {
+        name:          name.trim() || "Custom",
+        category:      type === "custom" ? "Custom" : category.trim(),
+        type,
+        shelfLifeDays: type === "custom" ? 1 : shelfLife,
+        description:   description.trim() || null,
+        allergens:     type === "termek_leiras" ? (allergens.trim() || null) : null,
+        profile:       "restaurant" as IndustryProfile,
+        pinned:        template?.pinned ?? false,
+      },
+      // Pass selection only when apps exist. With 0 apps the section is hidden,
+      // so we pass undefined (not []) to avoid wiping any existing visibility.
+      connectedApps.length > 0 ? visibleToAppIds : undefined,
+    );
   };
+
+  const toggleApp = (id: string) =>
+    setVisibleToAppIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
 
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center"
@@ -216,6 +234,43 @@ export function LabelForm({ template, onSave, onClose }: LabelFormProps) {
                 <input className="input" value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="e.g. Gluten, Milk" />
               </div>
             </>
+          )}
+
+          {/* Visible to — connected apps that can see/print this label (M3).
+              Only shown when at least one app is connected (zero noise otherwise). */}
+          {connectedApps.length > 0 && (
+            <div className="pt-1 border-t border-app-border">
+              <label className="section-label mb-1.5 block mt-3">{t("labels_form_visible_to", lang)}</label>
+              <p className="text-xs text-ink-muted mb-2">{t("labels_form_visible_to_sub", lang)}</p>
+              <div className="flex flex-col gap-1.5">
+                {connectedApps.map((app) => {
+                  const checked = visibleToAppIds.includes(app.id);
+                  return (
+                    <button
+                      key={app.id}
+                      type="button"
+                      onClick={() => toggleApp(app.id)}
+                      className={clsx(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-sm transition-colors",
+                        checked
+                          ? "border-brand/40 bg-brand-muted/40 text-ink-primary"
+                          : "border-app-border bg-app-elevated text-ink-secondary hover:border-app-border-hover"
+                      )}
+                    >
+                      <span
+                        className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 border"
+                        style={checked
+                          ? { background: "#1D9E75", borderColor: "#1D9E75" }
+                          : { borderColor: "var(--app-border, #d4d4d4)" }}
+                      >
+                        {checked && <Check size={11} className="text-white" />}
+                      </span>
+                      {app.orgName}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
 

@@ -5,6 +5,7 @@ import type {
   LabelTemplate,
   PrintJob,
   License,
+  ConnectedAppLite,
 } from "@/lib/types";
 
 const defaultSettings: AppSettings = {
@@ -27,14 +28,21 @@ interface AppStore {
   categories: string[];
   loaded:     boolean;
 
+  // Integration (M3): connected apps + template→app visibility map.
+  connectedApps:      ConnectedAppLite[];
+  templateVisibility: Record<string, string[]>; // templateId → connected_app_id[]
+
   loadFromCloud:      (userId: string) => Promise<void>;
   updateSettings:     (partial: Partial<AppSettings>) => void;
   updateQuickFilters: (filters: string[]) => void;
-  addTemplate:        (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount" | "lastCopies">) => void;
-  updateTemplate:     (id: string, partial: Partial<LabelTemplate>) => void;
+  addTemplate:        (t: Omit<LabelTemplate, "id" | "createdAt" | "updatedAt" | "printCount" | "lastCopies">, visibleToAppIds?: string[]) => void;
+  updateTemplate:     (id: string, partial: Partial<LabelTemplate>, visibleToAppIds?: string[]) => void;
   updateLastCopies:   (templateId: string, copies: number) => void;
   deleteTemplate:     (id: string) => void;
   pinTemplate:        (id: string, pinned: boolean) => void;
+  assignVisibilityBulk: (templateIds: string[], appIds: string[]) => void;
+  unassignVisibility: (templateId: string, appId: string) => void;
+  refreshConnectedApps: () => Promise<void>;
   addPrintJob:        (job: Omit<PrintJob, "id" | "printedAt">) => void;
   setLicense:         (l: License | null) => void;
   removeLicense:      () => Promise<void>;
@@ -60,6 +68,8 @@ export const useStore = create<AppStore>()((set, get) => ({
   license:    null,
   categories: [],
   loaded:     false,
+  connectedApps:      [],
+  templateVisibility: {},
 
   loadFromCloud: async (userId: string) => {
     set({ userId });
@@ -72,6 +82,8 @@ export const useStore = create<AppStore>()((set, get) => ({
         supabase.from("print_jobs").select("*").eq("user_id", userId).order("printed_at", { ascending: false }),
         supabase.from("categories").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
         supabase.from("accounts").select("license_key, license_plan, license_expires_at, activated_at").eq("id", userId).single(),
+        supabase.from("connected_apps").select("id, org_name, created_at").eq("account_id", userId).is("revoked_at", null).order("created_at", { ascending: true }),
+        supabase.from("template_visibility").select("template_id, connected_app_id").eq("account_id", userId),
       ]);
 
       // Difesa in profondità: se anche una query Supabase resta appesa
@@ -86,6 +98,8 @@ export const useStore = create<AppStore>()((set, get) => ({
         printJobsResult,
         categoriesResult,
         accountResult,
+        connectedAppsResult,
+        visibilityResult,
       ] = await Promise.race([queries, timeout]);
 
       const settingsRow =
@@ -98,6 +112,10 @@ export const useStore = create<AppStore>()((set, get) => ({
         categoriesResult.status === "fulfilled" ? categoriesResult.value.data : null;
       const accountRow =
         accountResult.status === "fulfilled" ? accountResult.value.data : null;
+      const connectedAppsRows =
+        connectedAppsResult.status === "fulfilled" ? connectedAppsResult.value.data : null;
+      const visibilityRows =
+        visibilityResult.status === "fulfilled" ? visibilityResult.value.data : null;
 
       if (settingsResult.status === "rejected")
         console.error("settings load error:", settingsResult.reason);
@@ -109,6 +127,10 @@ export const useStore = create<AppStore>()((set, get) => ({
         console.error("categories load error:", categoriesResult.reason);
       if (accountResult.status === "rejected")
         console.error("account load error:", accountResult.reason);
+      if (connectedAppsResult.status === "rejected")
+        console.error("connected_apps load error:", connectedAppsResult.reason);
+      if (visibilityResult.status === "rejected")
+        console.error("template_visibility load error:", visibilityResult.reason);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const settings: AppSettings = settingsRow ? {
@@ -168,7 +190,21 @@ export const useStore = create<AppStore>()((set, get) => ({
             }
           : null;
 
-      set({ settings, templates, printJobs, categories, license, loaded: true });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const connectedApps: ConnectedAppLite[] = ((connectedAppsRows ?? []) as any[]).map((r) => ({
+        id:        r.id,
+        orgName:   r.org_name,
+        createdAt: r.created_at,
+      }));
+
+      const templateVisibility: Record<string, string[]> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (const r of ((visibilityRows ?? []) as any[])) {
+        if (!templateVisibility[r.template_id]) templateVisibility[r.template_id] = [];
+        templateVisibility[r.template_id].push(r.connected_app_id);
+      }
+
+      set({ settings, templates, printJobs, categories, license, connectedApps, templateVisibility, loaded: true });
 
     } catch (e) {
       console.error("loadFromCloud unexpected error:", e);
@@ -205,7 +241,7 @@ export const useStore = create<AppStore>()((set, get) => ({
     get().updateSettings({ quickFilters: filters });
   },
 
-  addTemplate: (tmpl) => {
+  addTemplate: (tmpl, visibleToAppIds) => {
     const { userId, templates: previousTemplates } = get();
     console.log("addTemplate called, userId:", userId);
     if (!userId) return;
@@ -216,6 +252,12 @@ export const useStore = create<AppStore>()((set, get) => ({
         ...s.templates,
         { ...tmpl, id, createdAt: now, updatedAt: now, printCount: 0, lastCopies: 1 },
       ],
+      // Optimistic visibility for the new template. The DB rows are written only
+      // AFTER the template row commits (template_visibility.template_id FK).
+      templateVisibility:
+        visibleToAppIds && visibleToAppIds.length > 0
+          ? { ...s.templateVisibility, [id]: [...visibleToAppIds] }
+          : s.templateVisibility,
     }));
     supabase.from("templates").insert({
       id,
@@ -236,12 +278,28 @@ export const useStore = create<AppStore>()((set, get) => ({
       console.log("templates insert result:", { data, error });
       if (error) {
         console.error("addTemplate failed, rolling back:", error);
-        set({ templates: previousTemplates });
+        set((s) => {
+          const nextVis = { ...s.templateVisibility };
+          delete nextVis[id];
+          return { templates: previousTemplates, templateVisibility: nextVis };
+        });
+        return;
+      }
+      // Template committed → now safe to write visibility rows (FK satisfied).
+      if (visibleToAppIds && visibleToAppIds.length > 0) {
+        const rows = visibleToAppIds.map((appId) => ({
+          template_id:      id,
+          connected_app_id: appId,
+          account_id:       userId,
+        }));
+        supabase.from("template_visibility").insert(rows).then(({ error: vErr }: SupabaseError) => {
+          if (vErr) console.error("addTemplate visibility insert failed:", vErr);
+        });
       }
     });
   },
 
-  updateTemplate: (id, partial) => {
+  updateTemplate: (id, partial, visibleToAppIds) => {
     const { userId, templates: previousTemplates } = get();
     const now = new Date().toISOString();
     set((s) => ({
@@ -268,6 +326,39 @@ export const useStore = create<AppStore>()((set, get) => ({
         set({ templates: previousTemplates });
       }
     });
+
+    // Visibility diff (R11): incremental insert/delete, never wipe + reinsert.
+    // Only runs when the caller passed visibleToAppIds; otherwise behavior is
+    // identical to before (additive, backward compatible).
+    if (visibleToAppIds !== undefined) {
+      const current  = get().templateVisibility[id] ?? [];
+      const target   = visibleToAppIds;
+      const toAdd    = target.filter((a) => !current.includes(a));
+      const toRemove = current.filter((a) => !target.includes(a));
+
+      set((s) => ({
+        templateVisibility: { ...s.templateVisibility, [id]: [...target] },
+      }));
+
+      if (toAdd.length > 0 && userId) {
+        const rows = toAdd.map((appId) => ({
+          template_id:      id,
+          connected_app_id: appId,
+          account_id:       userId,
+        }));
+        supabase.from("template_visibility").insert(rows).then(({ error }: SupabaseError) => {
+          if (error) console.error("updateTemplate visibility insert failed:", error);
+        });
+      }
+      if (toRemove.length > 0) {
+        supabase.from("template_visibility").delete()
+          .eq("template_id", id)
+          .in("connected_app_id", toRemove)
+          .then(({ error }: SupabaseError) => {
+            if (error) console.error("updateTemplate visibility delete failed:", error);
+          });
+      }
+    }
   },
 
   updateLastCopies: (templateId, copies) => {
@@ -323,6 +414,74 @@ export const useStore = create<AppStore>()((set, get) => ({
           console.log("pinTemplate success — id:", id, "pinned:", pinned);
         }
       });
+  },
+
+  assignVisibilityBulk: (templateIds, appIds) => {
+    const { userId } = get();
+    if (!userId || templateIds.length === 0 || appIds.length === 0) return;
+
+    const nextVis = { ...get().templateVisibility };
+    const rows: { template_id: string; connected_app_id: string; account_id: string }[] = [];
+
+    for (const tId of templateIds) {
+      const merged = [...(nextVis[tId] ?? [])];
+      for (const aId of appIds) {
+        if (!merged.includes(aId)) {
+          merged.push(aId);
+          rows.push({ template_id: tId, connected_app_id: aId, account_id: userId });
+        }
+      }
+      nextVis[tId] = merged;
+    }
+
+    set({ templateVisibility: nextVis });
+
+    if (rows.length > 0) {
+      supabase.from("template_visibility").insert(rows).then(({ error }: SupabaseError) => {
+        if (error) console.error("assignVisibilityBulk failed:", error);
+      });
+    }
+  },
+
+  unassignVisibility: (templateId, appId) => {
+    const { userId } = get();
+    if (!userId) return;
+    set((s) => ({
+      templateVisibility: {
+        ...s.templateVisibility,
+        [templateId]: (s.templateVisibility[templateId] ?? []).filter((a) => a !== appId),
+      },
+    }));
+    supabase.from("template_visibility").delete()
+      .eq("template_id", templateId)
+      .eq("connected_app_id", appId)
+      .then(({ error }: SupabaseError) => {
+        if (error) console.error("unassignVisibility failed:", error);
+      });
+  },
+
+  // Re-query active connected apps (e.g. after a revoke in Settings) so the UI
+  // reflects the change without an app restart (M5 bug fix 2).
+  refreshConnectedApps: async () => {
+    const { userId } = get();
+    if (!userId) return;
+    const { data, error } = await supabase
+      .from("connected_apps")
+      .select("id, org_name, created_at")
+      .eq("account_id", userId)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: true });
+    if (error) {
+      console.error("refreshConnectedApps failed:", error.message);
+      return;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const connectedApps: ConnectedAppLite[] = ((data ?? []) as any[]).map((r) => ({
+      id:        r.id,
+      orgName:   r.org_name,
+      createdAt: r.created_at,
+    }));
+    set({ connectedApps });
   },
 
   addPrintJob: (job) => {
@@ -430,6 +589,8 @@ export const useStore = create<AppStore>()((set, get) => ({
       license:    null,
       categories: [],
       loaded:     false,
+      connectedApps:      [],
+      templateVisibility: {},
     });
   },
 }));

@@ -137,6 +137,33 @@ const translations = {
     settings_activate:      "Activate",
     settings_license_key:   "Enter license key…",
 
+    /* Connected apps (integrations) */
+    settings_connected_apps:      "Connected apps",
+    connected_apps_title:         "Connected apps",
+    connected_apps_sub:           "External apps connected to your account. They can read assigned templates and queue prints — they cannot change your data.",
+    connected_apps_empty:         "No apps connected.",
+    connected_apps_connected_on:  "Connected on",
+    connected_apps_last_used:     "Last used",
+    connected_apps_never_used:    "Never used",
+    connected_apps_revoke:        "Revoke",
+    connected_apps_revoke_confirm:"Revoke this connection? The app will lose access immediately.",
+    connected_apps_revoked:       "Connection revoked",
+
+    /* Visibility (M3) */
+    labels_form_visible_to:       "Visible to",
+    labels_form_visible_to_sub:   "Connected apps that can see and print this label",
+    labels_form_visible_to_none:  "No connected apps",
+    connected_apps_unassigned_title:               "Unassigned labels",
+    connected_apps_unassigned_sub:                 "Labels not yet shared with any connected app",
+    connected_apps_unassigned_search_placeholder:  "Search labels...",
+    connected_apps_unassigned_select_all:          "Select all visible",
+    connected_apps_unassigned_clear:               "Clear selection",
+    connected_apps_unassigned_assign_to:           "Assign to:",
+    connected_apps_unassigned_apply:               "Apply",
+    connected_apps_unassigned_empty:               "All labels are assigned",
+    connected_apps_unassigned_success:             "{count} labels assigned to {apps} app(s)",
+    labels_card_shared_with:      "Shared with: {orgs}",
+
     /* Profiles */
     profile_restaurant: "Restaurant",
     profile_hotel:      "Hotel / Catering",
@@ -311,6 +338,33 @@ const translations = {
     settings_no_license:    "Nincs aktivált licenc.",
     settings_activate:      "Aktiválás",
     settings_license_key:   "Add meg a licenckulcsot…",
+
+    /* Connected apps (integrations) */
+    settings_connected_apps:      "Csatlakoztatott alkalmazások",
+    connected_apps_title:         "Csatlakoztatott alkalmazások",
+    connected_apps_sub:           "A fiókodhoz csatlakoztatott külső alkalmazások. Olvashatják a hozzárendelt sablonokat és nyomtatást indíthatnak — az adataidat nem módosíthatják.",
+    connected_apps_empty:         "Nincs csatlakoztatott alkalmazás.",
+    connected_apps_connected_on:  "Csatlakoztatva",
+    connected_apps_last_used:     "Utoljára használva",
+    connected_apps_never_used:    "Soha nem használt",
+    connected_apps_revoke:        "Visszavonás",
+    connected_apps_revoke_confirm:"Visszavonod ezt a kapcsolatot? Az alkalmazás azonnal elveszíti a hozzáférést.",
+    connected_apps_revoked:       "Kapcsolat visszavonva",
+
+    /* Visibility (M3) */
+    labels_form_visible_to:       "Látható számára",
+    labels_form_visible_to_sub:   "Csatlakoztatott alkalmazások, amelyek láthatják és nyomtathatják ezt a címkét",
+    labels_form_visible_to_none:  "Nincs csatlakoztatott alkalmazás",
+    connected_apps_unassigned_title:               "Nem hozzárendelt címkék",
+    connected_apps_unassigned_sub:                 "Még egyetlen csatlakoztatott alkalmazással sem megosztott címkék",
+    connected_apps_unassigned_search_placeholder:  "Címkék keresése...",
+    connected_apps_unassigned_select_all:          "Összes látható kijelölése",
+    connected_apps_unassigned_clear:               "Kijelölés törlése",
+    connected_apps_unassigned_assign_to:           "Hozzárendelés:",
+    connected_apps_unassigned_apply:               "Alkalmaz",
+    connected_apps_unassigned_empty:               "Minden címke hozzá van rendelve",
+    connected_apps_unassigned_success:             "{count} címke hozzárendelve {apps} alkalmazáshoz",
+    labels_card_shared_with:      "Megosztva: {orgs}",
 
     profile_restaurant: "Étterem",
     profile_hotel:      "Hotel / Catering",

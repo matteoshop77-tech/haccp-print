@@ -88,12 +88,16 @@ legato a Planivo: Planivo è solo il primo client.
 
 ### 2.1 Checklist milestone
 
-- [ ] **M0** — Schema DB + infra `supabase/` (cartella, CLI, secrets, pipeline deploy)
-- [ ] **M1** — Edge `/connect` + UI "Connected apps" in Settings
-- [ ] **M2** — Edge `/templates` + `/print` + token model
-- [ ] **M4** — Listener desktop + stampa end-to-end (visibility assegnata via SQL grezzo)
-- [ ] **M3** — UI "Visible to:" nei template
-- [ ] **M5** — Error handling, idempotency end-to-end, retention, polish
+- [x] **M0** — Schema DB + infra `supabase/` (cartella, CLI, secrets, pipeline deploy)
+- [x] **M1** — Edge `/connect` + UI "Connected apps" in Settings
+- [x] **M2** — Edge `/templates` + `/print` + token model
+- [x] **M4** — Listener desktop + stampa end-to-end (visibility assegnata via SQL grezzo)
+- [x] **M3** — UI "Visible to:" nei template
+- [x] **M5** — Error handling, idempotency end-to-end, retention, polish
+
+> ✅ **Tutte le 6 milestone chiuse e testate end-to-end (28 giugno 2026).** Merge in `master`.
+> HACCPrint è ora "stampabile da fuori": app esterne (Planivo HUB) possono connettersi,
+> leggere i template autorizzati e accodare stampe processate dal listener desktop.
 
 **Sequenza scelta:** `M0 → M1 → M2 → M4 → M3 → M5`
 **Razionale ordine M4 prima di M3:** vogliamo dimostrare il giro di stampa end-to-end (un job
@@ -106,52 +110,134 @@ significherebbe debuggare due cose nuove insieme.
 > Ogni milestone, a chiusura, compila il proprio blocco. Finché è aperta resta "— non ancora chiusa —".
 
 #### M0 — Schema DB + infra supabase/
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `99daf30`
 - **File creati/modificati:**
+  - `supabase/config.toml` (nuovo)
+  - `supabase/migrations/20260628120000_integration_external_apps.sql` (nuovo)
+  - DB Supabase: 3 tabelle nuove (`connected_apps`, `template_visibility`, `print_queue`), indici, RLS + policy `owner_all_*`, estensione `print_jobs` (`source`, `requested_by_org`), `print_queue` aggiunta alla publication realtime
 - **Test eseguiti:**
+  - 3 tabelle nuove esistono ✅
+  - `print_queue` in publication realtime ✅
+  - Colonne `source` (NOT NULL default `'desktop'`) e `requested_by_org` (nullable) su `print_jobs` ✅
+  - RLS attiva con 1 policy `owner_all_*` per tabella ✅
 - **Note operative:**
+  - Deviazione consapevole dal plan: `print_queue.connected_app_id` nullable (NON `NOT NULL`). Motivo: `ON DELETE SET NULL` su `NOT NULL` è contraddittorio. Lo snapshot `org_name` preserva la traccia. Deviazione approvata dall'utente.
+  - Prima migration del progetto.
 
 #### M1 — Edge /connect + UI Connected apps
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `e036361`
 - **File creati/modificati:**
+  - `supabase/functions/connect/index.ts` (nuovo)
+  - `src/lib/i18n.ts` (10 chiavi nuove EN+HU, HU best-effort)
+  - `src/components/settings/ConnectedAppsSection.tsx` (nuovo)
+  - `src/pages/SettingsPage.tsx` (aggiunto gruppo Integrations)
 - **Test eseguiti:**
+  - `/connect` 401 con credenziali fake ✅
+  - `/connect` 400 con body vuoto ✅
+  - `/connect` 400 con JSON malformato ✅
+  - Happy path `/connect` via PowerShell: token emesso, riga in `connected_apps` con `token_hash` SHA-256 (64 char hex), `token_prefix` corretto (16 char), token raw non in chiaro ✅
+  - UI: connessione visibile in Settings, revoca funzionante via `window.confirm` ✅
+  - `tsc --noEmit` pulito ✅
 - **Note operative:**
+  - Edge function `verify_jwt=false` (endpoint pubblico di auth).
+  - CORS `"*"` e rate-limit con TODO M5 (poi implementati in M5).
 
 #### M2 — Edge /templates + /print + token model
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `c4d795f`
 - **File creati/modificati:**
+  - `supabase/functions/_shared/auth.ts` (nuovo: `corsHeaders`, `json`, `sha256Hex`, `createAdminClient`, `validateToken` con `AuthError`, update `last_used_at`)
+  - `supabase/functions/connect/index.ts` (refactor per usare gli helper condivisi, logica invariata)
+  - `supabase/functions/templates/index.ts` (nuovo)
+  - `supabase/functions/print/index.ts` (nuovo)
 - **Test eseguiti:**
+  - `/templates` 401 senza Authorization ✅
+  - `/templates` 401 con token fake ✅
+  - `/print` 401 senza header ✅
+  - `/print` 401 con body vuoto + header fake ✅
+  - Happy path `/templates` con token reale: array con 1 template (`vaj`), solo campi pubblici (`id, name, type, category, shelf_life_days, description, allergens, profile`), nessun campo privato ✅
+  - Happy path `/print`: HTTP 201 + `job_id`, status `pending` ✅
+  - Idempotency replay: stesso `job_id`, HTTP 200 ✅
+  - 403 con `template_id` non assegnato ✅
+  - Verifica DB via MCP: 1 sola riga in `print_queue` per `idempotency_key`, `last_used_at` aggiornato ✅
 - **Note operative:**
+  - Edge functions deployate `verify_jwt=false`: connect v2, templates v1, print v1.
+  - `/print` usa `.maybeSingle()` per verifica visibility (idiomatico supabase-js, equivalente al raw `SELECT 1`).
 
 #### M4 — Listener desktop + stampa end-to-end
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `9d7248b`
 - **File creati/modificati:**
+  - `src/lib/printQueueListener.ts` (nuovo)
+  - `src/App.tsx` (nuovo `useEffect` dedicato al listener, fuori dal lock auth)
 - **Test eseguiti:**
+  - Catch-up: job pending lasciato da M2 (`test-m2-001`) → stampa fisica prima etichetta "Csípős húsgolyó paradicsomszósszal" su Brother QL-800 ✅
+  - Realtime: nuovo job via PowerShell (`test-m4-realtime`) → stampa fisica seconda etichetta "vaj" senza interazione UI ✅
+  - DB post-stampa: `print_queue.status='done'`, `printed_at` valorizzato, `claimed_by` con UUID istanza ✅
+  - `print_jobs`: 2 righe nuove con `source='api'`, `requested_by_org='oinos-test-m2'`, `expiry_date` corretto (+`shelf_life_days`) ✅
 - **Note operative:**
+  - Deviazione subscribe-first vs catch-up-first: catch-up eseguito su evento `SUBSCRIBED`, elimina il gap "job perso tra SELECT e subscribe". Dedup via `seen`-set + claim atomico.
+  - Riuso `printLabel()` invece di reimplementare render+invoke (R1: nessuna modifica al pipeline GDI).
+  - INSERT diretto in `print_jobs` (non `store.addPrintJob`, che non supporta `source`/`requested_by_org`). `addPrintJob` esistente invariato (R3).
+  - Guard Tauri (`__TAURI_INTERNALS__`) → listener inerte in browser.
 
 #### M3 — UI "Visible to:" nei template
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `c82c846`
 - **File creati/modificati:**
+  - `src/store/useStore.ts` (additivo: `connectedApps`, `templateVisibility`, +query in `loadFromCloud`, reset su logout, `addTemplate`/`updateTemplate` con param `visibleToAppIds` opzionale, `assignVisibilityBulk`, `unassignVisibility`)
+  - `src/components/labels/LabelForm.tsx` (sezione "Visible to")
+  - `src/components/settings/UnassignedLabelsPanel.tsx` (nuovo: ricerca, select-all/clear, assign multi-app, Apply)
+  - `src/components/settings/ConnectedAppsSection.tsx` (integrazione `UnassignedLabelsPanel`)
+  - `src/pages/HomePage.tsx` (icona `Link2` teal + tooltip)
+  - `src/lib/i18n.ts` (chiavi nuove EN+HU, HU best-effort)
+  - `src/pages/LabelsPage.tsx` (2 handler aggiornati per compilare, sezione A funziona anche lì)
 - **Test eseguiti:**
+  - Indicatore C: icona link teal su `vaj` + `Csípős húsgolyó` (assegnate dai test M2) ✅
+  - Form A: sezione "Visible to" presente in Edit con checkbox `oinos-test-m2` spuntata ✅
+  - Pannello B: ricerca "lasa" filtra 7 lasagne, select all + Apply → assegnate, sparite dalla lista ✅
+  - Rimozione visibility da form: togli checkbox + Save → icona link sparisce, etichetta riappare nel bulk ✅
+  - R11 regression: creazione etichetta nuova senza toccare "Visible to" → comportamento invariato, nessuna riga in `template_visibility` ✅
+  - Diff insert/delete verificato via MCP ✅
 - **Note operative:**
+  - `LabelsPage.tsx` (non nelle route `App.tsx`) usa anch'esso `LabelForm` → aggiornati i 2 handler per compilare. Indicatore C scoped a HomePage (LabelsPage non agganciata alle route).
+  - Limite noto: icona link ghost dopo revoca + revoca senza refresh store → entrambi fixati in M5.
 
 #### M5 — Error handling, idempotency, retention, polish
-- **Stato:** — non ancora chiusa —
-- **Data di chiusura:**
-- **Commit di chiusura:**
+- **Stato:** ✅ CHIUSA
+- **Data di chiusura:** 28 giugno 2026
+- **Commit di chiusura:** `e84d093`
 - **File creati/modificati:**
+  - `supabase/migrations/20260628130000_rate_limiting.sql` (nuovo: tabella `api_rate_limits` + funzione `check_rate_limit`)
+  - `supabase/functions/_shared/auth.ts` (rate-limit per-token in `validateToken`)
+  - `supabase/functions/connect/index.ts` (v3: rate-limit per IP)
+  - `supabase/functions/templates/index.ts` (v2: rate-limit per token via `validateToken`)
+  - `supabase/functions/print/index.ts` (v2: rate-limit per token via `validateToken`)
+  - `src/lib/printQueueListener.ts` (`runRetention()` prima del catch-up)
+  - `src/store/useStore.ts` (action `refreshConnectedApps`)
+  - `src/components/settings/ConnectedAppsSection.tsx` (refresh post-revoca)
+  - `src/pages/HomePage.tsx` (filtro client-side: solo app attive per indicatore link)
+  - `src/components/settings/UnassignedLabelsPanel.tsx` (filtro: assigned = ha visibility verso ≥1 app attiva)
 - **Test eseguiti:**
+  - `/connect` spam 12 richieste → 401×10 → 429 ✅
+  - `check_rate_limit` SQL: 10 true → false ✅
+  - Retention DELETE: job `done` >30g cancellato, recenti intatti ✅
+  - Revoca via UI: card sparisce subito senza riavvio (refresh store) ✅
+  - Bug ghost icon: icona link sparita dalle card `vaj` + `Csípős húsgolyó` dopo revoca `oinos-test-m2` ✅
+  - `tsc --noEmit` pulito ✅
 - **Note operative:**
+  - Tabella generica `api_rate_limits` (non `rate_limit_connect` dedicata): copre sia IP che token con stesso pattern.
+  - Rate-limit per-token centralizzato in `validateToken` (DRY).
+  - Fail-open sul limiter: se la SQL function fallisce, la richiesta passa (no caduta API per glitch limiter).
+  - CORS `"*"` mantenuto definitivamente con commento di rationale (Planivo chiama server-to-server, token-protetto).
+  - Retention solo per `status='done'`. Failed tenuti per debug.
 
 ---
 

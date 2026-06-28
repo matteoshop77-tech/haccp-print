@@ -210,14 +210,14 @@ export default function LabelsPage() {
       : []),
   ];
 
-  const handleSaveNew = (data: LabelFormData) => {
-    addTemplate(data);
+  const handleSaveNew = (data: LabelFormData, visibleToAppIds?: string[]) => {
+    addTemplate(data, visibleToAppIds);
     setShowForm(false);
   };
 
-  const handleSaveEdit = (data: LabelFormData) => {
+  const handleSaveEdit = (data: LabelFormData, visibleToAppIds?: string[]) => {
     if (!editTarget) return;
-    updateTemplate(editTarget.id, data);
+    updateTemplate(editTarget.id, data, visibleToAppIds);
     setEditTarget(null);
   };
 

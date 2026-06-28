@@ -5,6 +5,7 @@ import { useAuthStore } from "@/lib/authStore";
 import { supabase } from "@/lib/supabaseClient";
 import { t } from "@/lib/i18n";
 import type { IndustryProfile } from "@/lib/types";
+import ConnectedAppsSection from "@/components/settings/ConnectedAppsSection";
 import clsx from "clsx";
 
 const profileEmoji: Record<IndustryProfile, string> = {
@@ -59,6 +60,7 @@ const sections = [
   { key: "subscription", group: "Account" },
   { key: "haccp_export", group: "Data" },
   { key: "backup",       group: "Data" },
+  { key: "connected_apps", group: "Integrations" },
 ] as const;
 
 type SectionKey = typeof sections[number]["key"];
@@ -679,12 +681,13 @@ export default function SettingsPage() {
           </>
         )}
 
-        {active === "device"       && <DeviceSection />}
-        {active === "license"      && <LicenseSection lang={lang} />}
-        {active === "haccp_export" && <HaccpExportSection lang={lang} />}
-        {active === "backup"       && <BackupSection lang={lang} />}
+        {active === "device"         && <DeviceSection />}
+        {active === "license"        && <LicenseSection lang={lang} />}
+        {active === "haccp_export"   && <HaccpExportSection lang={lang} />}
+        {active === "backup"         && <BackupSection lang={lang} />}
+        {active === "connected_apps" && <ConnectedAppsSection lang={lang} />}
 
-        {!["account", "profile", "language", "appearance", "device", "license", "haccp_export", "backup"].includes(active) && (
+        {!["account", "profile", "language", "appearance", "device", "license", "haccp_export", "backup", "connected_apps"].includes(active) && (
           <div>
             <h2 className="text-lg font-medium text-ink-primary mb-2">
               {t(`settings_${active}` as Parameters<typeof t>[0], lang)}

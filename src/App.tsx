@@ -10,6 +10,7 @@ import AuthPage         from "@/pages/AuthPage";
 import { supabase }     from "@/lib/supabaseClient";
 import { useAuthStore } from "@/lib/authStore";
 import { useStore }     from "@/store/useStore";
+import { startPrintQueueListener } from "@/lib/printQueueListener";
 import UpdateChecker from "@/components/UpdateChecker";
 
 export default function App() {
@@ -94,6 +95,19 @@ export default function App() {
 
     return () => {
       mounted = false;
+    };
+  }, [user?.id]);
+
+  // Effetto 3 — listener della coda di stampa (app esterne via Realtime).
+  // Separato dall'auth (fuori dal lock GoTrue, vincolo #6) e dal caricamento
+  // dati. Parte/si spegne per user.id. Inerte fuori dal build Tauri.
+  useEffect(() => {
+    if (!user?.id) return;
+    console.log("[App] starting print queue listener for", user.id);
+    const stopListener = startPrintQueueListener(user.id);
+    return () => {
+      console.log("[App] stopping print queue listener");
+      stopListener();
     };
   }, [user?.id]);
 
